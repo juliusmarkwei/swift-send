@@ -1,19 +1,15 @@
 import africastalking
 from decouple import config
 
-username = config('USERNAME')
-api_key = config('API_KEY')
+africastalking.initialize(
+    username=config('AFRICASTALKING_USERNAME'),
+    api_key=config('AFRICASTALKING_API_KEY')
+)
 
-africastalking.initialize(username, api_key)
 
 sms = africastalking.SMS
-
-# Or use it asynchronously
-def on_finish(error, response):
-    if error is not None:
-        raise error
-    print(response)
-      
-def send_sms(message: str, to: list):
-    response = sms.send(message, to, callback=on_finish)
-    # return response
+def send_sms(message: str, to: list, sender: str=None):
+    try:
+        return sms.send(message, to, sender)
+    except Exception as e:
+        print (f'Hey, we have a problem: {e}')
