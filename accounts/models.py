@@ -25,7 +25,7 @@ class UserAccountManager(BaseUserManager):
         if extra_fields.get("is_superuser") is not True:
             raise ValueError(_("Superuser must have is_superuser=True."))
         
-        return self.create_user(email=email, password=password, **extra_fields)
+        return self.create_user(email=email, password=password, re_password=re_password, **extra_fields)
 
 
 class UserAccount(AbstractBaseUser, PermissionsMixin):
@@ -38,6 +38,7 @@ class UserAccount(AbstractBaseUser, PermissionsMixin):
     password = models.CharField(max_length=255)
     phone = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
     objects = UserAccountManager()
     
@@ -46,6 +47,11 @@ class UserAccount(AbstractBaseUser, PermissionsMixin):
     
     def __str__(self):
         return self.username
+    
+    def save(self, *args, **kwargs):
+        if not self.pk: 
+            self.set_password(self.password)
+        super().save(*args, **kwargs)
     
     class Meta:
         verbose_name = _('User')

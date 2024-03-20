@@ -7,3 +7,4 @@ class UserAccountAdmin(admin.ModelAdmin):
     list_display_links = ('id', 'username')
     search_fields = ('username',)
     ordering = ('-created_at',)
+    
