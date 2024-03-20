@@ -34,7 +34,7 @@ class ContactSerializer(serializers.ModelSerializer):
 class MessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
-        fields = '__all__'
+        fields = ['id', 'message_content', 'created_by', 'status', 'created_at', 'updated_at']
         
         
 class TemplateSerializer(serializers.ModelSerializer):
