@@ -10,6 +10,8 @@ africastalking.initialize(
 sms = africastalking.SMS
 def send_sms(message: str, to: list, sender: str=None):
     try:
-        return sms.send(message, to, sender)
+        response = sms.send(message, to, sender)
+        print(response)
     except Exception as e:
         print (f'Hey, we have a problem: {e}')
+
