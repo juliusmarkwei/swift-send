@@ -6,7 +6,7 @@ User = get_user_model()
 
 class Template(models.Model):
     name = models.CharField(max_length=255)
-    message_content = models.TextField()
+    content = models.TextField()
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, db_column='created_by')
     created_at = models.DateTimeField(auto_now_add=True)
     last_sent = models.DateTimeField(blank=True, null=True)
@@ -30,7 +30,7 @@ class ContactTemplate(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return self.contact + ' - ' + self.template
+        return str(self.contact.pk) + ' - ' + self.template.name
     
     class Meta:
         verbose_name = 'Contact Template'
