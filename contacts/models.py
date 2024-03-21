@@ -15,7 +15,7 @@ class Contact(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return self.first_name + ' ' + self.last_name
+        return str(self.id)
     
     class Meta:
         verbose_name = 'Contact'
