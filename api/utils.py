@@ -1,6 +1,5 @@
-from drf_yasg.views import get_schema_view
-from drf_yasg import openapi
-from rest_framework import permissions
+from messages_logs.models import MessageLog, RecipientLog
+from contacts.models import Contact
 
 
 def clean_contacts(contacts):
@@ -19,22 +18,17 @@ def clean_contacts(contacts):
         
     return contact_lists
 
-project_description = '''
-    The SMS Distribution System is a web application designed to streamline the process of creating,\
-        managing, and distributing SMS messages to contacts. The system allows users to create message\
-            templates, manage contacts, associate contacts with templates, and send SMS messages to selected\
-                contacts. It features user authentication and authorization to ensure secure access to the system
-'''
 
-schema_view = get_schema_view(
-   openapi.Info(
-      title="SMS Sender Application",
-      default_version='v1',
-      description=project_description,
-      terms_of_service="https://www.google.com/policies/terms/",
-      contact=openapi.Contact(email="julius.markwei@stu.ucc.edu.gh"),
-      license=openapi.License(name="BSD License"),
-   ),
-   public=True,
-   permission_classes=(permissions.AllowAny,),
-)
+def save_new_contact(phone_number, user):
+    return Contact.objects.create(phone=phone_number, created_by=user)
+
+def create_message_logs(message: str, user, recipient_lists: list, status: str):
+    message_log = MessageLog.objects.create(content=message, author=user, status=status)
+    
+    for recipient in recipient_lists:
+        try:
+            contact = Contact.objects.get(phone=recipient, created_by=user)
+            RecipientLog.objects.create(contact=contact, message=message_log)
+        except Contact.DoesNotExist:
+            saved_contact = save_new_contact(recipient, user)
+            RecipientLog.objects.create(contact=saved_contact, message=message_log)
