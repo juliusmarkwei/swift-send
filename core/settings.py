@@ -44,10 +44,10 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'djoser',
     
-    'accounts',
-    'contacts',
-    'messages_logs',
-    'msg_templates',
+    'src.accounts',
+    'src.contacts',
+    'src.message_logs',
+    'src.msg_templates',
     'api',
     
     "drf_yasg", # swagger
