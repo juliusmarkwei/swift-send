@@ -1,34 +1,40 @@
-from messages_logs.models import MessageLog, RecipientLog
-from contacts.models import Contact
+from src.message_logs.models import MessageLog, RecipientLog
+from src.contacts.models import Contact
+from .send_sms import send_sms
 
 
 def clean_contacts(contacts):
+    if isinstance(contacts, list):
+        return [contact.strip() for contact in contacts]
+
     contact_lists = []
-    
-    if ',' in contacts:
-        contact_lists = [recipient.strip() for recipient in contacts.split(',')]
-    elif ' ' in contacts:
-        contact_lists = [recipient.strip() for recipient in contacts.split()]
-    elif ';' in contacts:
-        contact_lists = [recipient.strip() for recipient in contacts.split(';')]
-    elif '\n' in contacts:
-        contact_lists = [recipient.strip() for recipient in contacts.split('\n')]
-    else:
+    delimiters = [',', ';', ' ', '\n']
+
+    for delimiter in delimiters:
+        if delimiter in contacts:
+            contact_lists = [recipient.strip() for recipient in contacts.split(delimiter)]
+            break
+    if not contact_lists:
         contact_lists.append(contacts.strip())
         
     return contact_lists
 
 
+
 def save_new_contact(phone_number, user):
     return Contact.objects.create(phone=phone_number, created_by=user)
 
-def create_message_logs(message: str, user, recipient_lists: list, status: str):
-    message_log = MessageLog.objects.create(content=message, author=user, status=status)
+def create_message_logs(message: str, user):
+    messageLogObject = MessageLog.objects.create(content=message, author=user)
+    return messageLogObject
     
-    for recipient in recipient_lists:
-        try:
-            contact = Contact.objects.get(phone=recipient, created_by=user)
-            RecipientLog.objects.create(contact=contact, message=message_log)
-        except Contact.DoesNotExist:
-            saved_contact = save_new_contact(recipient, user)
-            RecipientLog.objects.create(contact=saved_contact, message=message_log)
+            
+def create_recipient_log(recipient_lists: list, messageLogInstace, response: dict, user):
+    for recipient_data in response.get("SMSMessageData", {}).get("Recipients", []):
+        recipient_number = recipient_data.get("number")
+        recipient_status = recipient_data.get("status")
+        print(recipient_number, recipient_status)
+        recipient_contact = Contact.objects.get(phone=recipient_number, created_by=user)
+        
+        recipient_log = RecipientLog.objects.create(message=messageLogInstace, contact=recipient_contact, status=recipient_status)
+        recipient_log.save()

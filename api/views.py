@@ -1,16 +1,16 @@
 from django.contrib.auth import get_user_model
-from contacts.models import Contact
-from messages_logs.models import MessageLog
-from msg_templates.models import Template, ContactTemplate
+from src.contacts.models import Contact
+from src.message_logs.models import MessageLog, RecipientLog
+from src.msg_templates.models import Template, ContactTemplate
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .serializers import ContactSerializer, MessageLogSerializer, TemplateSerializer, MessageLogDetailSerializer
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from .send_sms import send_sms
-from .utils import clean_contacts, create_message_logs, save_new_contact
+from .utils import clean_contacts, create_message_logs, create_recipient_log
 from django.db import IntegrityError
-
+from datetime import datetime
 
 
 User = get_user_model()
@@ -70,14 +70,14 @@ class ContactView(APIView):
     
 
 
-class TemplateView(APIView):
+class TemplateListCreateUpdateDestroyView(APIView):
     permission_classes = [IsAuthenticated]
     
-    def get(self, request, templateID=None):
+    def get(self, request, templateId=None):
         user = request.user
-        if templateID:
+        if templateId:
             try:
-                template = Template.objects.get(pk=templateID, created_by=user)
+                template = Template.objects.get(pk=templateId, created_by=user)
                 serializer = TemplateSerializer(template)
                 return Response(serializer.data, status=status.HTTP_200_OK)
             except Template.DoesNotExist:
@@ -98,30 +98,6 @@ class TemplateView(APIView):
            
             if serializer.is_valid():
                 template = serializer.save()
-              
-                contacts = request_data.get('contacts', [])
-                if contacts:
-                    recipient_lists = clean_contacts(contacts)
-                    for recipient in recipient_lists:
-                        contact, created = Contact.objects.get_or_create(phone=recipient, created_by=user)
-                        if created:
-                            contact.save()
-                        # Create association between contact and template
-                        ContactTemplate.objects.create(contact=contact, template=template)
-
-                # Check if sending SMS is requested
-                distribute = request_data.get('distribute', False)
-                if distribute:
-                    if contacts:
-                        try:
-                            response = send_sms(message=template.content, to=recipient_lists)
-                            create_message_logs(message=template.content, user=user, recipient_lists=recipient_lists, status='Sent')
-                        except Exception as e:
-                            return Response({'message': f'Error: {e}'}, status=status.HTTP_400_BAD_REQUEST)
-                        return Response({'message': 'Message delivered!'}, status=status.HTTP_204_NO_CONTENT)
-                    else:
-                        return Response({'message': 'No contacts provided'}, status=status.HTTP_400_BAD_REQUEST)
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except User.DoesNotExist:
@@ -141,34 +117,6 @@ class TemplateView(APIView):
         serializer = TemplateSerializer(template, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-
-            contacts = request.data.get('contacts', [])
-            if contacts:
-                recipient_lists = clean_contacts(contacts)
-                for recipient in recipient_lists:
-                    try:
-                        contact, created = Contact.objects.get_or_create(phone=recipient, created_by=user)
-                        if created:
-                            contact.save()
-                        # Create association between contact and template
-                        ContactTemplate.objects.get_or_create(contact=contact, template=template)
-                    except IntegrityError:
-                        pass                    
-            # Check if sending SMS is requested
-            distribute = request.data.get('distribute', False)
-            if distribute:
-                # Get associated contacts and call function to send SMS
-                associated_contacts = ContactTemplate.objects.filter(template=template).values_list('contact', flat=True)
-                if not associated_contacts:
-                    return Response({'message': 'No contacts associated with template'}, status=status.HTTP_400_BAD_REQUEST)
-                try:
-                    associated_contacts = Contact.objects.filter(pk__in=associated_contacts)
-                    recipient_lists = [contact.phone for contact in associated_contacts if contact.phone]
-                    response = send_sms(message=template.content, to=recipient_lists)
-                    create_message_logs(message=template.content, user=user, recipient_lists=recipient_lists, status='Sent')
-                    return Response({'message': 'Message sent!'}, status=status.HTTP_204_NO_CONTENT)
-                except Exception as e:
-                    return Response({'message': f'Error: {e}'}, status=status.HTTP_400_BAD_REQUEST)
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
@@ -183,7 +131,48 @@ class TemplateView(APIView):
             return Response({'message': 'Template not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class TemplateContactView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, templateId):
+        user = request.user
+        try:
+            template = Template.objects.get(pk=templateId, created_by=user)
+        except Template.DoesNotExist:
+            return Response({'message': 'Template not found'}, status=status.HTTP_404_NOT_FOUND)
         
+        contact_template_objects = ContactTemplate.objects.filter(template=template)
+        contacts = Contact.objects.filter(pk__in=contact_template_objects.values_list('contact', flat=True))
+        
+        if contacts.exists():
+            serializer = ContactSerializer(contacts, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response({'message': 'No contacts found for this template'}, status=status.HTTP_404_NOT_FOUND)
+        
+    def post(self, request, templateId):
+        user = request.user
+        try:
+            template = Template.objects.get(pk=templateId, created_by=user)
+        except Template.DoesNotExist:
+            return Response({'message': 'Template not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        request_data = request.data.copy()
+        contacts = request_data.get('contacts', [])
+        if not contacts:
+            return Response({'message': 'No contacts provided'}, status=status.HTTP_400_BAD_REQUEST)
+        recipient_lists = clean_contacts(contacts)
+        for recipient in recipient_lists:
+            contact, created = Contact.objects.get_or_create(phone=recipient, created_by=user)
+            if created:
+                contact.save()
+            try:
+                contact_template = ContactTemplate.objects.get_or_create(template=template, contact=contact)
+            except IntegrityError:
+                return Response({'message': 'Contact already exists in the template'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'message': 'Contacts added to template'}, status=status.HTTP_201_CREATED)
 
 
       
@@ -211,42 +200,51 @@ class MessageLogView(APIView):
 class ResendLogMessgae(APIView):
     permission_classes = [IsAuthenticated]
     
-    # resend a log message without changing the content
+    # resend an unedited log message, mssage goes to all associated contacts
     def post(self, request, messageId):
         user = request.user
         try:
-            message = MessageLog.objects.filter(pk=messageId, author=user)
+            message = MessageLog.objects.get(pk=messageId, author=user)
         except MessageLog.DoesNotExist:
             return Response({'message': 'Message not found'}, status=status.HTTP_404_NOT_FOUND)
         
-        message_id = message.id
-        associated_contacts = RecipientLog.objects.filter(message=message_id).values_list('contact', flat=True)
+        associated_contacts = RecipientLog.objects.filter(message=message)
         
         try:
-            response = send_sms(message=message.content, to=associated_contacts)
-            create_message_logs(message=message.content, user=user, recipient_lists=recipient_lists, status='Sent')
+            recipient_numbers = [contact.contact.phone for contact in associated_contacts]
+            response = send_sms(message=message.content, to=recipient_numbers)
+            messageId = create_message_logs(message=message.content, user=user)
+            create_recipient_log(recipient_lists=recipient_numbers, messageLogInstace=messageId, response=response, user=user)
+            
             return Response({'message': 'Message sent!'}, status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
             return Response({'message': f'Error: {e}'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # edit before resending a log message
+    # edit and resend a message log
     def put(self, request, messageId):
         user = request.user
         try:
-            message = MessageLog.objects.filter(pk=messageId, author=user)
+            original_message = MessageLog.objects.get(pk=messageId, author=user)
         except MessageLog.DoesNotExist:
             return Response({'message': 'Message not found'}, status=status.HTTP_404_NOT_FOUND)
         
-        serializer = MessageLogSerializer(message, data=request.data, partial=True)
+        serializer = MessageLogSerializer(original_message, data=request.data, partial=True)
         if serializer.is_valid():
-            serializer.save()
-            associated_contacts = RecipientLog.objects.filter(message=message).values_list('contact', flat=True)
+            # Create a new message log if the user edits the message
+            new_message_log = serializer.save(author=user)
+            
+            # Send the edited message log to its associated users
+            associated_contacts = RecipientLog.objects.filter(message=new_message_log)
             try:
-                response = send_sms(message=message.content, to=associated_contacts)
-                create_message_logs(message=message.content, user=user, recipient_lists=recipient_lists, status='Sent')
-                return Response({'message': 'Message sent!'}, status=status.HTTP_204_NO_CONTENT)
+                recipient_numbers = [contact.contact.phone for contact in associated_contacts]
+                response = send_sms(message=new_message_log.content, to=recipient_numbers)
+                messageId = create_message_logs(message=new_message_log.content, user=user)
+                create_recipient_log(recipient_lists=recipient_numbers, messageLogInstace=messageId, response=response, user=user)
+            
             except Exception as e:
-                return Response({'message': f'Error: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'message': f'Error sending message: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            return Response({'message': 'Message updated and sent!', 'new_message_id': new_message_log.id}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 
@@ -269,10 +267,42 @@ class SendMessageView(APIView):
             contact, created = Contact.objects.get_or_create(phone=recipient, created_by=user)
             if created:
                 contact.save()
-                  
+        
         try:
             response = send_sms(message=message, to=recipient_lists)
-            create_message_logs(message=message, user=user, recipient_lists=recipient_lists, status='Sent')
+            messageLog =create_message_logs(message=message, user=user)
+            create_recipient_log(recipient_lists=recipient_lists, messageLogInstace=messageLog, response=response, user=user)
+            
             return Response({'message': 'Message sent!'}, status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
             return Response({'message': f'Error: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SendTemplateMessage(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, templateId):
+        user = request.user
+        try:
+            template = Template.objects.get(pk=templateId, created_by=user)
+        except Template.DoesNotExist:
+            return Response({'message': 'Template not found'}, status=status.HTTP_404_NOT_FOUND)
+        contact = ContactTemplate.objects.filter(template=template).values_list('contact', flat=True)
+        print(contact)
+        if contact:
+            recipient_lists = []
+            for contact in contact:
+                recipient_lists.append(Contact.objects.get(pk=contact).phone)
+                
+            try:
+                response = send_sms(message=template.content, to=recipient_lists)
+                messageLog = create_message_logs(message=template.content, user=user)
+                create_recipient_log(recipient_lists=recipient_lists, messageLogInstace=messageLog, response=response, user=user)
+                
+                template.last_sent = datetime.now()
+                template.save()
+            except Exception as e:
+                return Response({'message': f'Error: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'message': 'Message sent!'}, status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response({'message': 'No contacts provided'}, status=status.HTTP_400_BAD_REQUEST)

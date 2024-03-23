@@ -1,7 +1,7 @@
-from accounts.models import UserAccount
-from contacts.models import Contact
-from messages_logs.models import MessageLog, RecipientLog
-from msg_templates.models import Template
+from src.accounts.models import UserAccount
+from src.contacts.models import Contact
+from src.message_logs.models import MessageLog, RecipientLog
+from src.msg_templates.models import Template
 from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
 
@@ -37,7 +37,7 @@ class MessageLogDetailSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = MessageLog
-        fields = ['id', 'content', 'author', 'status', 'sent_at', 'recipients']
+        fields = ['id', 'content', 'author', 'sent_at', 'recipients']
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -48,7 +48,7 @@ class MessageLogSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = MessageLog
-        fields = ['id', 'content', 'author', 'status', 'sent_at', 'recipients']
+        fields = ['id', 'content', 'author', 'sent_at', 'recipients']
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -62,6 +62,10 @@ class MessageLogSerializer(serializers.ModelSerializer):
         data['recipients'] = formatted_recipients
         return data
 
+class ResentLogMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MessageLog
+        fields = ['id', 'content', 'author', 'sent_at']
             
 class TemplateSerializer(serializers.ModelSerializer):
     class Meta:
