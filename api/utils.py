@@ -33,7 +33,7 @@ def create_recipient_log(recipient_lists: list, messageLogInstace, response: dic
     for recipient_data in response.get("SMSMessageData", {}).get("Recipients", []):
         recipient_number = recipient_data.get("number")
         recipient_status = recipient_data.get("status")
-        print(recipient_number, recipient_status)
+        
         recipient_contact = Contact.objects.get(phone=recipient_number, created_by=user)
         
         recipient_log = RecipientLog.objects.create(message=messageLogInstace, contact=recipient_contact, status=recipient_status)
