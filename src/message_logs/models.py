@@ -7,7 +7,7 @@ User = get_user_model()
 
 class MessageLog(models.Model):   
     content = models.TextField(max_length=255)
-    author = models.ForeignKey(User, on_delete=models.PROTECT, db_column='authorId')
+    author_id = models.ForeignKey(User, on_delete=models.PROTECT, db_column='author_id')
     sent_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
@@ -20,8 +20,8 @@ class MessageLog(models.Model):
         
     
 class RecipientLog(models.Model):   
-    contact = models.ForeignKey(Contact, on_delete=models.SET_NULL, null=True, db_column='receipient')
-    message = models.ForeignKey(MessageLog, on_delete=models.CASCADE, db_column='message')
+    contact_id = models.ForeignKey(Contact, on_delete=models.SET_NULL, null=True, db_column='receipient')
+    message_id = models.ForeignKey(MessageLog, on_delete=models.CASCADE, db_column='message_id')
     status = models.CharField(max_length=20, default='PENDING')
     
     def __str__(self):
