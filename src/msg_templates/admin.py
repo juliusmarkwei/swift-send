@@ -9,4 +9,4 @@ class TemplateAdmin(admin.ModelAdmin):
 
 @admin.register(ContactTemplate)
 class ContactTemplateAdmin(admin.ModelAdmin):
-    list_display = ('id', 'contact', 'template', 'created_at')
+    list_display = ('id', 'contact_id', 'template_id', 'created_at')

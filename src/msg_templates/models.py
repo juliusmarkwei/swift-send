@@ -24,10 +24,9 @@ class Template(models.Model):
         
         
 class ContactTemplate(models.Model):
-    contact = models.ForeignKey(Contact, on_delete=models.CASCADE)
-    template = models.ForeignKey(Template, on_delete=models.CASCADE)
+    contact_id = models.ForeignKey(Contact, on_delete=models.CASCADE, db_column='contact_id')
+    template_id = models.ForeignKey(Template, on_delete=models.CASCADE, db_column='template_id')
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
         return str(self.contact.pk) + ' - ' + self.template.name
@@ -36,4 +35,4 @@ class ContactTemplate(models.Model):
         verbose_name = 'Contact Template'
         verbose_name_plural = 'Contact Templates'
         db_table = 'contact_template'
-        unique_together = ('contact', 'template')
+        unique_together = ('contact_id', 'template_id')
