@@ -3,10 +3,23 @@ from drf_yasg import openapi
 from rest_framework import permissions
 
 project_description = '''
-    The SMS Distribution System is a web application designed to streamline the process of creating,\
-        managing, and distributing SMS messages to contacts. The system allows users to create message\
-            templates, manage contacts, associate contacts with templates, and send SMS messages to selected\
-                contacts. It features user authentication and authorization to ensure secure access to the system
+        ### Description
+        ---
+        This ***SMS Platform for Digital Marketers*** is a sophisticated web application\
+        tailored to meet the specific requirements of digital marketers and businesses.\
+        This platform offers a comprehensive suite of features designed to streamline\
+        the process of sending SMS messages to multiple recipients. Leveraging the\
+        capabilities of the Africa's Talking SMS API, users can efficiently create,\
+        manage, and send personalized messages while benefiting from advanced\
+        functionalities such as message templating, quick send options, and\
+        detailed message history tracking. With its intuitive interface and\
+        seamless integration with Africa's Talking API, the SMS Platform \
+        or Digital Marketers provides users with a powerful tool to enhance\
+        their communication strategies and engage with their target audience effectively.\n
+        
+        ---
+        [Source Code](https://github.com/juliusmarkwei/sms-sender)
+        
 '''
 
 schema_view = get_schema_view(

@@ -17,8 +17,20 @@ class UserAccountSerializer(serializers.ModelSerializer):
 class ContactSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contact
-        fields = ['id', 'first_name', 'last_name', 'middle_name', 'email', 'phone', 'info', 'created_by', 'created_at', 'updated_at']
-        
+        fields = ['id', 'first_name', 'last_name', 'middle_name', 'email', 'phone', 'info', 'created_at', 'updated_at']
+
+class ContactUpdateSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(required=False)
+    last_name = serializers.CharField(required=False)
+    middle_name = serializers.CharField(required=False)
+    email = serializers.EmailField(required=False)
+    phone = serializers.CharField(required=False)
+    info = serializers.CharField(required=False)
+    
+    class Meta:
+        model = Contact
+        fields = ['first_name', 'last_name', 'middle_name', 'email', 'phone', 'info']
+
 class ContactDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contact
@@ -37,7 +49,7 @@ class MessageLogDetailSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = MessageLog
-        fields = ['id', 'content', 'author', 'sent_at', 'recipients']
+        fields = ['id', 'content', 'sent_at', 'recipients']
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -48,7 +60,7 @@ class MessageLogSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = MessageLog
-        fields = ['id', 'content', 'author', 'sent_at', 'recipients']
+        fields = ['id', 'content', 'sent_at', 'recipients']
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -61,13 +73,28 @@ class MessageLogSerializer(serializers.ModelSerializer):
         data['recipients'] = formatted_recipients
         return data
 
+class MessageLogUpdateSerializer(serializers.ModelSerializer):
+    content = serializers.CharField(required=True)
+    
+    class Meta:
+        model = MessageLog
+        fields = ['content']
+
+
 class ResentLogMessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = MessageLog
-        fields = ['id', 'content', 'author', 'sent_at']
+        fields = ['id', 'content', 'sent_at']
             
 class TemplateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Template
-        fields = '__all__'
+        fields = ['id', 'name', 'content', 'created_at', 'updated_at']
         
+class TemplateUpdateSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(required=False)
+    content = serializers.CharField(required=False)
+    
+    class Meta:
+        model = Template
+        fields = ['name', 'content']

@@ -9,4 +9,3 @@ htmlcov/
 **.vscode/
 **.idea/
 **.mypy_cache/
-api/__pycache__/
