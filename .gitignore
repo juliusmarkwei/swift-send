@@ -1,2 +1,12 @@
 venv/
 .env
+*frontend
+htmlcov/
+.coverage
+.pytest_cache
+**__pycache__/
+**.pytest_cache/
+**.vscode/
+**.idea/
+**.mypy_cache/
+api/__pycache__/
