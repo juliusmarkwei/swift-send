@@ -56,7 +56,6 @@ class MessageLogSerializer(serializers.ModelSerializer):
         formatted_recipients = []
         for recipient in data['recipients']:
             recipient_data = {
-                'recipient_id': recipient['id'],
                 'contact_id': recipient['contact_details']['id'],}
             formatted_recipients.append(recipient_data)
         data['recipients'] = formatted_recipients
