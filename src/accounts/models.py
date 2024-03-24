@@ -28,13 +28,13 @@ class UserAccountManager(BaseUserManager):
 
 
 class UserAccount(AbstractBaseUser, PermissionsMixin):
-    email = models.EmailField(max_length=255, unique=True, verbose_name=_('Email Address'))
+    email = models.EmailField(max_length=100, unique=True, verbose_name=_('Email Address'))
     username = models.CharField(max_length=255, unique=True, verbose_name=_('Username'))
     first_name = models.CharField(max_length=255)
     last_name = models.CharField(max_length=255)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
-    password = models.CharField(max_length=255)
+    password = models.CharField(max_length=20)
     phone = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
