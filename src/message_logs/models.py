@@ -20,9 +20,9 @@ class MessageLog(models.Model):
         
     
 class RecipientLog(models.Model):   
-    contact_id = models.ForeignKey(Contact, on_delete=models.SET_NULL, null=True, db_column='receipient')
+    contact_id = models.ForeignKey(Contact, on_delete=models.SET_NULL, null=True, db_column='contact_id')
     message_id = models.ForeignKey(MessageLog, on_delete=models.CASCADE, db_column='message_id')
-    status = models.CharField(max_length=20, default='PENDING')
+    status = models.CharField(max_length=100, default='PENDING')
     
     def __str__(self):
         return str(self.contact_id)

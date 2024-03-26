@@ -1,6 +1,5 @@
 venv/
 .env
-*frontend
 htmlcov/
 .coverage
 .pytest_cache

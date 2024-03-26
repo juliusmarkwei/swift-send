@@ -11,5 +11,5 @@ class MessageAdmin(admin.ModelAdmin):
 @admin.register(RecipientLog)
 class ReceipientAdmin(admin.ModelAdmin):
     list_display = ('id', 'contact_id', 'message_id', 'status')
-    search_fields = ('contact',)
+    search_fields = ('contact_id',)
     ordering = ('-id',)

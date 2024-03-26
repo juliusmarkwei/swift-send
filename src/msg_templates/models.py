@@ -29,7 +29,7 @@ class ContactTemplate(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
-        return str(self.contact.pk) + ' - ' + self.template.name
+        return str(self.contact_id.pk) + ' - ' + self.template_id.name
     
     class Meta:
         verbose_name = 'Contact Template'

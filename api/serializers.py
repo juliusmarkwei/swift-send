@@ -19,6 +19,32 @@ class ContactSerializer(serializers.ModelSerializer):
         model = Contact
         fields = ['id', 'first_name', 'last_name', 'middle_name', 'email', 'phone', 'info', 'created_at', 'updated_at']
 
+class ContactCreateSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(required=False)
+    last_name = serializers.CharField(required=False)
+    middle_name = serializers.CharField(required=False)
+    email = serializers.EmailField(required=False)
+    phone = serializers.CharField(required=True)
+    info = serializers.CharField(required=False)
+    created_by = serializers.PrimaryKeyRelatedField(queryset=UserAccount.objects.all(), required=True)
+    
+    class Meta:
+        model = Contact
+        fields = ['id', 'first_name', 'last_name', 'middle_name', 'email', 'phone', 'info', 'created_by']
+        
+    def create(self, validated_data):
+        contact = Contact.objects.create(
+            first_name=validated_data.get('first_name', None),
+            last_name=validated_data.get('last_name', None),
+            middle_name=validated_data.get('middle_name', None),
+            email=validated_data.get('email', None),
+            phone=validated_data.get('phone'),
+            info=validated_data.get('info', None),
+            created_by=validated_data.get('created_by')
+        )
+        return contact
+
+
 class ContactUpdateSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(required=False)
     last_name = serializers.CharField(required=False)
@@ -31,29 +57,43 @@ class ContactUpdateSerializer(serializers.ModelSerializer):
         model = Contact
         fields = ['first_name', 'last_name', 'middle_name', 'email', 'phone', 'info']
 
+
 class ContactDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contact
         fields = ['id', 'first_name', 'last_name', 'middle_name', 'email', 'phone', 'info']
-        
-class RecipientLogSerializer(serializers.ModelSerializer):
-    contact_details = ContactDetailSerializer(source='contact', read_only=True)
+    
+
+class RecipientLogDetailSerializer(serializers.ModelSerializer):
+    contact_info = ContactDetailSerializer(source='contact_id', read_only=True)
+    recipient_id = serializers.IntegerField(source='id')
     
     class Meta:
         model = RecipientLog
-        fields = ['id', 'contact_details']
-        
+        fields = ['recipient_id', 'status', 'contact_info']
+       
               
 class MessageLogDetailSerializer(serializers.ModelSerializer):
-    recipients = RecipientLogSerializer(source='recipientlog_set', many=True, read_only=True)
+    recipients = RecipientLogDetailSerializer(source='recipientlog_set', many=True, read_only=True)
     
     class Meta:
         model = MessageLog
         fields = ['id', 'content', 'sent_at', 'recipients']
+        depth = 1
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
         return data
+
+
+class RecipientLogSerializer(serializers.ModelSerializer):
+    contact_id = serializers.PrimaryKeyRelatedField(queryset=Contact.objects.all(), required=True)
+    recipient_id = serializers.IntegerField(source='id')
+    
+    class Meta:
+        model = RecipientLog
+        fields = ['recipient_id', 'contact_id', 'status']
+
 
 class MessageLogSerializer(serializers.ModelSerializer):
     recipients = RecipientLogSerializer(source='recipientlog_set', many=True, read_only=True)
@@ -61,17 +101,12 @@ class MessageLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = MessageLog
         fields = ['id', 'content', 'sent_at', 'recipients']
-
+        depth = 1
+        
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        # Customizing the format of recipients data
-        formatted_recipients = []
-        for recipient in data['recipients']:
-            recipient_data = {
-                'contact_id': recipient['contact_details']['id'],}
-            formatted_recipients.append(recipient_data)
-        data['recipients'] = formatted_recipients
         return data
+    
 
 class MessageLogUpdateSerializer(serializers.ModelSerializer):
     content = serializers.CharField(required=True)
@@ -87,9 +122,10 @@ class ResentLogMessageSerializer(serializers.ModelSerializer):
         fields = ['id', 'content', 'sent_at']
             
 class TemplateSerializer(serializers.ModelSerializer):
+    created_by = serializers.PrimaryKeyRelatedField(queryset=UserAccount.objects.all(), required=True)
     class Meta:
         model = Template
-        fields = ['id', 'name', 'content', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'content', 'created_at', 'updated_at', 'created_by']
         
 class TemplateUpdateSerializer(serializers.ModelSerializer):
     name = serializers.CharField(required=False)
