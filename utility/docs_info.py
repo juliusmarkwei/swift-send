@@ -24,7 +24,7 @@ project_description = '''
 
 schema_view = get_schema_view(
    openapi.Info(
-      title="SWIFT-SENDER API Documentation - SMS Platform for Digital Marketers®️",
+      title="SWIFT-SEND API Documentation - SMS Platform for Digital Marketers ®️",
       default_version='v1',
       description=project_description,
       terms_of_service="https://www.google.com/policies/terms/",
