@@ -15,6 +15,7 @@ djangorestframework-simplejwt==5.3.1
 djoser==2.2.2
 drf-yasg==1.21.7
 exceptiongroup==1.2.0
+gunicorn==21.2.0
 idna==3.6
 inflection==0.5.1
 iniconfig==2.0.0
