@@ -26,23 +26,12 @@ class ContactCreateSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(required=False)
     phone = serializers.CharField(required=True)
     info = serializers.CharField(required=False)
-    created_by = serializers.PrimaryKeyRelatedField(queryset=UserAccount.objects.all(), required=True)
+    created_by = serializers.PrimaryKeyRelatedField(queryset=UserAccount.objects.all(), required=True, write_only=True)
     
     class Meta:
         model = Contact
         fields = ['id', 'first_name', 'last_name', 'middle_name', 'email', 'phone', 'info', 'created_by']
-        
-    def create(self, validated_data):
-        contact = Contact.objects.create(
-            first_name=validated_data.get('first_name', None),
-            last_name=validated_data.get('last_name', None),
-            middle_name=validated_data.get('middle_name', None),
-            email=validated_data.get('email', None),
-            phone=validated_data.get('phone'),
-            info=validated_data.get('info', None),
-            created_by=validated_data.get('created_by')
-        )
-        return contact
+
 
 
 class ContactUpdateSerializer(serializers.ModelSerializer):
@@ -121,11 +110,19 @@ class ResentLogMessageSerializer(serializers.ModelSerializer):
         model = MessageLog
         fields = ['id', 'content', 'sent_at']
             
+            
 class TemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Template
+        fields = ['id', 'name', 'content', 'created_at', 'updated_at']
+        
+        
+class TemplateCreateSerializer(serializers.ModelSerializer):
     created_by = serializers.PrimaryKeyRelatedField(queryset=UserAccount.objects.all(), required=True)
     class Meta:
         model = Template
         fields = ['id', 'name', 'content', 'created_at', 'updated_at', 'created_by']
+        
         
 class TemplateUpdateSerializer(serializers.ModelSerializer):
     name = serializers.CharField(required=False)

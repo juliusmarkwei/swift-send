@@ -14,6 +14,7 @@ from .serializers import (
     TemplateUpdateSerializer,
     MessageLogUpdateSerializer,
     ContactCreateSerializer,
+    TemplateCreateSerializer,
 )
 from rest_framework.permissions import IsAuthenticated
 from .send_sms import send_sms
@@ -74,13 +75,33 @@ class ContactView(APIView):
         serializer = ContactSerializer(contacts_page, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-
-    @swagger_auto_schema(operation_id='Create a contact', operation_description='Create a contact. Required field(s): phone',
-                         responses={201: server_response, 401: 'Unauthorized'}, request_body=ContactCreateSerializer(), tags=['contacts'])
+    server_response = openapi.Response('response description', ContactCreateSerializer)
+    @swagger_auto_schema(
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'id': openapi.Schema(type=openapi.TYPE_INTEGER),
+            'first_name': openapi.Schema(type=openapi.TYPE_STRING),
+            'last_name': openapi.Schema(type=openapi.TYPE_STRING),
+            'middle_name': openapi.Schema(type=openapi.TYPE_STRING),
+            'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL),
+            'phone': openapi.Schema(type=openapi.TYPE_STRING),
+            'info': openapi.Schema(type=openapi.TYPE_STRING),
+        },
+        required=['phone'],
+    ),
+    responses={201: 'Created', 400: 'Bad Request'},
+    operation_id='Create a contact',
+    operation_description='Create a contact. Required field(s): phone',
+    tags=['contacts']
+)
     def post(self, request):
         user = request.user
         request_data = request.data.copy()
+        
         request_data['created_by'] = user.id
+        created_by = user.id
+        
         
         # Check if a contact with the same phone number and user already exists
         existing_contact = Contact.objects.filter(phone=request_data['phone'], created_by=user).exists()
@@ -190,7 +211,7 @@ class TemplateView(APIView):
     
     
     @swagger_auto_schema(operation_id='Create a template', operation_description='Create a template. Required field(s): name, content',
-                         responses={201: server_response,  401: 'Unauthorized'}, request_body=TemplateSerializer(), tags=['templates'])
+                         responses={201: 'Created',  401: 'Unauthorized'}, request_body=TemplateSerializer(), tags=['templates'])
     def post(self, request):
         try:
             user = request.user
@@ -200,7 +221,7 @@ class TemplateView(APIView):
             template_name_exists = Template.objects.filter(name=request_data['name'], created_by=user).exists()
             if template_name_exists:
                 return Response({'message': 'Template name already exist, choose a different name'}, status=status.HTTP_409_CONFLICT)
-            serializer = TemplateSerializer(data=request_data)
+            serializer = TemplateCreateSerializer(data=request_data)
            
             if serializer.is_valid():
                 template = serializer.save()
