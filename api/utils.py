@@ -30,22 +30,33 @@ def create_message_logs(message: str, user):
     messageLogObject = MessageLog.objects.create(content=message, author_id=user)
     return messageLogObject
     
-            
-def create_recipient_log(recipient_lists: list, messageLogInstance, response: dict, user):
+
+
+def create_recipient_log(messageLogInstance, response: dict, user):
     for recipient_data in response.get("SMSMessageData", {}).get("Recipients", []):
+        print("reesponse here: ", response)
         recipient_number = recipient_data.get("number")
         if recipient_number:
             recipient_status = recipient_data.get("status")
             
-            # Query the Contact object only if recipient_number is not None
+           # Query the Contact object only if recipient_number is not None
             recipient_contact = Contact.objects.filter(phone=recipient_number, created_by=user).first()
-            print(recipient_contact)
             if recipient_contact:
                 recipient_log = RecipientLog.objects.create(message_id=messageLogInstance, contact_id=recipient_contact, status=recipient_status)
                 recipient_log.save()
             else:
-                # Handle case where no Contact object is found for the recipient_number
                 print(f"No Contact found for recipient number: {recipient_number}")
         else:
-            # Handle case where recipients_number is None
             return Response({"message": "Recipient number is deleted from your contact!"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+def generate_personalized_message(template_message: str, contact: Contact):
+    if "<full_name>" in template_message:
+        template_message = template_message.replace("<full_name>", contact.full_name)
+    if "<email>" in template_message:
+        template_message = template_message.replace("<email>", contact.email)
+    if "<phone>" in template_message:
+        template_message = template_message.replace("<phone>", contact.phone)
+    if "<info>" in template_message:
+        template_message = template_message.replace("<info>", contact.info)
+    return template_message

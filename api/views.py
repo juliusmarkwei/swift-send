@@ -18,7 +18,12 @@ from .serializers import (
 )
 from rest_framework.permissions import IsAuthenticated
 from .send_sms import send_sms
-from .utils import clean_contacts, create_message_logs, create_recipient_log
+from .utils import (
+    clean_contacts,
+    create_message_logs,
+    create_recipient_log,
+    generate_personalized_message
+)
 from django.db import IntegrityError
 from datetime import datetime
 from django.db import transaction
@@ -480,7 +485,7 @@ class ResendLogMessgae(APIView):
                 return Response({'message': 'No contacts associated with message'}, status=status.HTTP_400_BAD_REQUEST)
             response = send_sms(message=message.content, to=recipient_numbers)
             messageId = create_message_logs(message=message.content, user=user)
-            create_recipient_log(recipient_lists=recipient_numbers, messageLogInstance=messageId, response=response, user=user)
+            create_recipient_log(messageLogInstance=messageId, response=response, user=user)
             
             return Response({'message': 'Message sent!'}, status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
@@ -512,7 +517,7 @@ class ResendLogMessgae(APIView):
                 return Response({'message': 'No contacts associated with message'}, status=status.HTTP_400_BAD_REQUEST)
             response = send_sms(message=message_content, to=recipient_numbers)
             messageId = create_message_logs(message=message_content, user=user)
-            create_recipient_log(recipient_lists=recipient_numbers, messageLogInstance=messageId, response=response, user=user)
+            create_recipient_log(messageLogInstance=messageId, response=response, user=user)
         
         except Exception as e:
             return Response({'message': f'Error sending message: {e}'}, status=status.HTTP_400_BAD_REQUEST)
@@ -555,17 +560,19 @@ class SendMessageView(APIView):
             return Response({'message': 'No contacts provided'}, status=status.HTTP_400_BAD_REQUEST)
         
         recipient_lists = clean_contacts(contacts)
-        recipient_lists = []
+        phone_numbers = []
         for recipient in recipient_lists:
             try:
                 contact = Contact.objects.get(phone=recipient, created_by=user)
-                recipient_lists.append(contact.phone)
+                phone_numbers.append(contact.phone)
             except Contact.DoesNotExist:
                 return Response({'message': f'Contact with phone number {recipient} not found'}, status=status.HTTP_404_NOT_FOUND)
         try:
-            response = send_sms(message=message, to=recipient_lists)
+            if not phone_numbers:
+                return Response({'message': 'No contacts found'}, status=status.HTTP_404_NOT_FOUND)
+            response = send_sms(message=message, to=phone_numbers)
             messageLog =create_message_logs(message=message, user=user)
-            create_recipient_log(recipient_lists=recipient_lists, messageLogInstance=messageLog, response=response, user=user)
+            create_recipient_log(messageLogInstance=messageLog, response=response, user=user)
             
             return Response({'message': 'Message sent!'}, status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
@@ -588,22 +595,26 @@ class SendTemplateMessage(APIView):
             template = Template.objects.get(name=formattedTemplateName, created_by=user)
         except Template.DoesNotExist:
             return Response({'message': 'Template not found'}, status=status.HTTP_404_NOT_FOUND)
-        contact = ContactTemplate.objects.filter(template_id=template).values_list('contact_id', flat=True)
-        if contact:
-            recipient_lists = []
-            for contact in contact:
-                recipient_lists.append(Contact.objects.get(pk=contact).phone)
-                
+        
+        contacts = ContactTemplate.objects.filter(template_id=template)
+        for contact_template in contacts:
+            contact = contact_template.contact_id
             try:
-                response = send_sms(message=template.content, to=recipient_lists)
-                messageLog = create_message_logs(message=template.content, user=user)
-                create_recipient_log(recipient_lists=recipient_lists, messageLogInstance=messageLog, response=response, user=user)
-                
+                template_content = template.content
+                personalized_message = generate_personalized_message(template_message=template_content, contact=contact)
+                print(personalized_message)
+                print(contact.phone)
+                response = send_sms(message=personalized_message, to=[contact.phone])
+                print(response)
+                messageLog = create_message_logs(message=personalized_message, user=user)
+                print('yeayyyyyyyyyaaaas')
+                create_recipient_log(messageLogInstance=messageLog, response=response, user=user)
+                                
                 template.last_sent = datetime.now()
                 template.save()
             except Exception as e:
                 return Response({'message': f'Error: {e}'}, status=status.HTTP_400_BAD_REQUEST)
-            return Response({'message': 'Message sent!'}, status=status.HTTP_204_NO_CONTENT)
-        else:
-            return Response({'message': 'No contacts associated with template'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response({'message': 'Message sent!'}, status=status.HTTP_204_NO_CONTENT)
+
         
