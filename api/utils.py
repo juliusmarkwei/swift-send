@@ -31,7 +31,7 @@ def create_message_logs(message: str, user):
     return messageLogObject
     
             
-def create_recipient_log(recipient_lists: list, messageLogInstace, response: dict, user):
+def create_recipient_log(recipient_lists: list, messageLogInstance, response: dict, user):
     for recipient_data in response.get("SMSMessageData", {}).get("Recipients", []):
         recipient_number = recipient_data.get("number")
         if recipient_number:
@@ -39,8 +39,9 @@ def create_recipient_log(recipient_lists: list, messageLogInstace, response: dic
             
             # Query the Contact object only if recipient_number is not None
             recipient_contact = Contact.objects.filter(phone=recipient_number, created_by=user).first()
+            print(recipient_contact)
             if recipient_contact:
-                recipient_log = RecipientLog.objects.create(message_id=messageLogInstace, contact_id=recipient_contact, status=recipient_status)
+                recipient_log = RecipientLog.objects.create(message_id=messageLogInstance, contact_id=recipient_contact, status=recipient_status)
                 recipient_log.save()
             else:
                 # Handle case where no Contact object is found for the recipient_number

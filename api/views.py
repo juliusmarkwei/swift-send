@@ -36,7 +36,7 @@ class ContactView(APIView):
     server_response = openapi.Response('response description', ContactSerializer)
     @swagger_auto_schema(
         operation_id='Get all contacts', operation_description='Get all contacts. Optionally, add query parameter(s) with keys:\
-            phone=233xxxxxxxx | first_name=John | last_name=Doe | ordering. Default PAGE SIZE is 10 and PAGE NUMBER is 1',
+            phone=233xxxxxxxx | full_name=John Doe | ordering. Default PAGE SIZE is 10 and PAGE NUMBER is 1',
         responses={200: server_response, 401: 'Unauthorized'}, tags=['contacts'])
     def get(self, request):
         user = request.user
@@ -50,16 +50,11 @@ class ContactView(APIView):
             formatted_phone_number = '+' + phone_number
             contacts = contacts.filter(phone=formatted_phone_number)
             
-        # Filter by first_name if provided in query parameters
-        first_name = request.query_params.get('first_name', None)
-        if first_name:
-            contacts = contacts.filter(first_name=first_name)
-            
-        # Filter by last_name if provided in query parameters
-        last_name = request.query_params.get('last_name', None)
-        if last_name:
-            contacts = contacts.filter(last_name=last_name)
-        
+        # Filter by full_name if provided in query parameters
+        full_name = request.query_params.get('full_name', None)
+        if full_name:
+            contacts = contacts.filter(full_name=full_name)
+                  
         # Ordering by field if provided in query parameters
         if ordering:
             contacts = contacts.order_by(ordering)
@@ -80,28 +75,23 @@ class ContactView(APIView):
     request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
         properties={
-            'id': openapi.Schema(type=openapi.TYPE_INTEGER),
-            'first_name': openapi.Schema(type=openapi.TYPE_STRING),
-            'last_name': openapi.Schema(type=openapi.TYPE_STRING),
-            'middle_name': openapi.Schema(type=openapi.TYPE_STRING),
+            'full_name': openapi.Schema(type=openapi.TYPE_STRING),
             'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL),
             'phone': openapi.Schema(type=openapi.TYPE_STRING),
             'info': openapi.Schema(type=openapi.TYPE_STRING),
         },
-        required=['phone'],
+        required=['phone', 'full_name',],
     ),
     responses={201: 'Created', 400: 'Bad Request'},
     operation_id='Create a contact',
-    operation_description='Create a contact. Required field(s): phone',
+    operation_description='Create a contact. Required field(s): phone, full_name',
     tags=['contacts']
-)
+    )
     def post(self, request):
         user = request.user
         request_data = request.data.copy()
         
         request_data['created_by'] = user.id
-        created_by = user.id
-        
         
         # Check if a contact with the same phone number and user already exists
         existing_contact = Contact.objects.filter(phone=request_data['phone'], created_by=user).exists()
@@ -122,31 +112,33 @@ class ContactView(APIView):
 class ContactDetailView(APIView):
     permission_classes = [IsAuthenticated]
     
-    parameters = openapi.Parameter('contactId', openapi.IN_PATH, description='Contact ID', type=openapi.TYPE_INTEGER)
+    parameters = openapi.Parameter('contactFullName', openapi.IN_PATH, description='Contact Full Name', type=openapi.TYPE_STRING)
     server_response = openapi.Response('response description', ContactSerializer)
-    @swagger_auto_schema(operation_id='Get a contact', operation_description='Get a contact by ID', manual_parameters=[parameters],
+    @swagger_auto_schema(operation_id='Get a contact', operation_description='Get a contact by their full name', manual_parameters=[parameters],
                          responses={200: server_response, 401: 'Unauthorized'}, tags=['contacts'])
-    def get(self, request, contactId=None):
+    def get(self, request, contactFullName=None):
         user = request.user
         try:
-            if contactId is None:
-                return Response({'message': 'Contact ID not provided'}, status=status.HTTP_400_BAD_REQUEST)
-            contact = Contact.objects.get(pk=contactId, created_by=user)
+            if contactFullName is None:
+                return Response({'message': 'Contact full name not provided'}, status=status.HTTP_400_BAD_REQUEST)
+            formattedFulName = contactFullName.strip()
+            contact = Contact.objects.get(full_name=formattedFulName, created_by=user)
             serializer = ContactSerializer(contact)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Contact.DoesNotExist:
             return Response({'message': 'Contact not found'}, status=status.HTTP_404_NOT_FOUND)
     
     
-    @swagger_auto_schema(operation_id='Update a contact', operation_description='Update a contact by ID', manual_parameters=[parameters],
+    @swagger_auto_schema(operation_id='Update a contact', operation_description='Update a contact by their full name', manual_parameters=[parameters],
                          responses={200: server_response, 401: 'Unauthorized'}, request_body=ContactUpdateSerializer(), tags=['contacts'])
-    def put(self, request, contactId=None):
+    def put(self, request, contactFullName=None):
         user = request.user
         try:
-            if contactId is None:
-                return Response({'message': 'Contact ID not provided'}, status=status.HTTP_400_BAD_REQUEST)
+            if contactFullName is None:
+                return Response({'message': 'Contact full name not provided'}, status=status.HTTP_400_BAD_REQUEST)
             user_contacts = Contact.objects.filter(created_by=user)
-            contact = user_contacts.get(pk=contactId)
+            formattedFulName = contactFullName.strip()
+            contact = user_contacts.get(full_name=formattedFulName)
         except Contact.DoesNotExist:
             return Response({'message': 'Contact not found'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -161,19 +153,19 @@ class ContactDetailView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     
-    @swagger_auto_schema(operation_id='Delete a contact', operation_description='Delete a contact by ID', manual_parameters=[parameters],
+    @swagger_auto_schema(operation_id='Delete a contact', operation_description='Delete a contact by full name', manual_parameters=[parameters],
                          responses={204: 'No Content', 401: 'Unauthorized'}, tags=['contacts'])
-    def delete(self, request, contactId=None):
+    def delete(self, request, contactFullName=None):
         user = request.user
         try:
-            if contactId is None:
-                return Response({'message': 'Contact ID not provided'}, status=status.HTTP_400_BAD_REQUEST)
-            contact = Contact.objects.get(pk=contactId, created_by=user)
+            if contactFullName is None:
+                return Response({'message': 'Contact full name not provided'}, status=status.HTTP_400_BAD_REQUEST)
+            formattedFulName = contactFullName.strip()
+            contact = Contact.objects.get(full_name=formattedFulName, created_by=user)
             contact.delete()
             return Response({'message': 'Contact deleted!'}, status=status.HTTP_204_NO_CONTENT)
         except Contact.DoesNotExist:
             return Response({'message': 'Contact not found'}, status=status.HTTP_404_NOT_FOUND)
-
 
 
 
@@ -237,30 +229,34 @@ class TemplateView(APIView):
 class TemplateDetailView(APIView):
     permission_classes = [IsAuthenticated]
     
-    parameter = openapi.Parameter('templateId', openapi.IN_PATH, description='Template ID', type=openapi.TYPE_INTEGER)
+    parameter = openapi.Parameter('templateName', openapi.IN_PATH, description='Template name', type=openapi.TYPE_STRING)
     server_response = openapi.Response('response description', TemplateSerializer)
-    @swagger_auto_schema(operation_id='Get a template', operation_description='Get a template by ID', manual_parameters=[parameter],
+    @swagger_auto_schema(operation_id='Get a template', operation_description="Get a template by it's name", manual_parameters=[parameter],
                          responses={200: server_response,  401: 'Unauthorized'}, tags=['templates'])
-    def get(self, request, templateId=None):
+    def get(self, request, templateName=None):
         user = request.user
         try:
-            if templateId is None:
-                return Response({'message': 'Template ID not provided'}, status=status.HTTP_400_BAD_REQUEST)
-            template = Template.objects.get(pk=templateId, created_by=user)
+            if templateName is None:
+                return Response({'message': 'Template name not provided'}, status=status.HTTP_400_BAD_REQUEST)
+            formattedTemplateName = templateName.strip()
+            template = Template.objects.get(name=formattedTemplateName, created_by=user)
+            print('yesyyyyyyyyy')
             serializer = TemplateSerializer(template)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Template.DoesNotExist:
             return Response({'message': 'Template not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(serializer.errors, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-    @swagger_auto_schema(operation_id='Update a template', operation_description='Update a template by ID', manual_parameters=[parameter],
+    @swagger_auto_schema(operation_id='Update a template', operation_description="Update a template by its name", manual_parameters=[parameter],
                          responses={200: server_response,  401: 'Unauthorized'}, request_body=TemplateUpdateSerializer(), tags=['templates'])
-    def put(self, request, templateId=None):
+    def put(self, request, templateName=None):
         user = request.user
         try:
-            if templateId is None:
-                return Response({'message': 'Template ID not provided'}, status=status.HTTP_400_BAD_REQUEST)
+            if templateName is None:
+                return Response({'message': 'Template name not provided'}, status=status.HTTP_400_BAD_REQUEST)
             user_templates = Template.objects.filter(created_by=user)
-            template = user_templates.get(pk=templateId)
+            formattedTemplateName = templateName.strip()
+            template = user_templates.get(name=formattedTemplateName)
         except Template.DoesNotExist:
             return Response({'message': 'Template not found'}, status=status.HTTP_404_NOT_FOUND)
         
@@ -271,14 +267,15 @@ class TemplateDetailView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     
-    @swagger_auto_schema(operation_id='Delete a template', operation_description='Delete a template by ID', manual_parameters=[parameter],
+    @swagger_auto_schema(operation_id='Delete a template', operation_description="Delete a template by its name", manual_parameters=[parameter],
                          responses={204: 'No Content',  401: 'Unauthorized'}, tags=['templates'])
-    def delete(self, request, templateId=None):
+    def delete(self, request, templateName=None):
         try:
-            if templateId is None:
-                return Response({'message': 'Template ID not provided'}, status=status.HTTP_400_BAD_REQUEST)
+            if templateName is None:
+                return Response({'message': 'Template name not provided'}, status=status.HTTP_400_BAD_REQUEST)
             user = request.user
-            template = Template.objects.get(pk=templateId, created_by=user)
+            formattedTemplateName = templateName.strip()
+            template = Template.objects.get(name=formattedTemplateName, created_by=user)
             template.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Template.DoesNotExist:
@@ -291,16 +288,17 @@ class TemplateDetailView(APIView):
 class TemplateContactView(APIView):
     permission_classes = [IsAuthenticated]
     
-    parameter = openapi.Parameter('templateId', openapi.IN_PATH, description='Template ID', type=openapi.TYPE_INTEGER)
+    parameter = openapi.Parameter('templateName', openapi.IN_PATH, description='Template name', type=openapi.TYPE_STRING)
     server_response = openapi.Response('response description', ContactSerializer)
-    @swagger_auto_schema(operation_id='Get contacts associated with a template', operation_description='Get contacts associated with a template by ID',
+    @swagger_auto_schema(operation_id='Get contacts associated with a template', operation_description='Get contacts associated with a template by template name',
                          manual_parameters=[parameter], responses={200: server_response,  401: 'Unauthorized'}, tags=['templates'])
-    def get(self, request, templateId=None):
+    def get(self, request, templateName=None):
         user = request.user
         try:
-            if templateId is None:
-                return Response({'message': 'Template ID not provided'}, status=status.HTTP_400_BAD_REQUEST)
-            template = Template.objects.get(pk=templateId, created_by=user)
+            if templateName is None:
+                return Response({'message': 'Template name not provided'}, status=status.HTTP_400_BAD_REQUEST)
+            formattedTemplateName = templateName.strip()
+            template = Template.objects.get(name=formattedTemplateName, created_by=user)
         except Template.DoesNotExist:
             return Response({'message': 'Template not found'}, status=status.HTTP_404_NOT_FOUND)
         
@@ -324,14 +322,15 @@ class TemplateContactView(APIView):
             description='List of contact(s)'
         )
     },required=['contacts'])
-    @swagger_auto_schema(operation_id='Add contacts to a template', operation_description='Add contacts to a template by ID. Note: Contact will be created if it does not exist.',
+    @swagger_auto_schema(operation_id='Add contacts to a template', operation_description='Add contacts to a template by template name. Note: Contact will be created if it does not exist in your contacts.',
         manual_parameters=[parameter], responses={201: 'Created',  401: 'Unauthorized'}, request_body=data, tags=['templates'])
-    def post(self, request, templateId=None):
+    def post(self, request, templateName=None):
         user = request.user
         try:
-            if templateId is None:
-                return Response({'message': 'Template ID not provided'}, status=status.HTTP_400_BAD_REQUEST)
-            template = Template.objects.get(pk=templateId, created_by=user)
+            if templateName is None:
+                return Response({'message': 'Template name not provided'}, status=status.HTTP_400_BAD_REQUEST)
+            formattedTemplateName = templateName.strip()
+            template = Template.objects.get(name=formattedTemplateName, created_by=user)
         except Template.DoesNotExist:
             return Response({'message': 'Template not found'}, status=status.HTTP_404_NOT_FOUND)
         
@@ -341,29 +340,48 @@ class TemplateContactView(APIView):
             return Response({'message': 'No contacts provided'}, status=status.HTTP_400_BAD_REQUEST)
         
         recipient_lists = clean_contacts(contacts)
+        phoneNotInContacts = False
+        phoneNotInContacts_list = []
+        contactAlreadyIntemplateContacts = False
+        contactAlreadyIntemplateContacts_list = []
+        
         for recipient in recipient_lists:
-            contact, created = Contact.objects.get_or_create(phone=recipient, created_by=user)
-            if created:
-                contact.save()
-            
+            contact = None  # Initialize contact variable
             try:
-                contact_template, created = ContactTemplate.objects.get_or_create(template_id=template, contact_id=contact)
-                if not created:
-                    return Response({'message': 'Contact already associated with template'}, status=status.HTTP_400_BAD_REQUEST)
-            except IntegrityError:
-                return Response({'message': 'Integrity error occurred'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                contact = Contact.objects.get(phone=recipient, created_by=user)
+            except Contact.DoesNotExist:
+                phoneNotInContacts = True
+                phoneNotInContacts_list.append(recipient)
+            
+            if contact:
+                try:
+                    contact_template, created = ContactTemplate.objects.get_or_create(template_id=template, contact_id=contact)
+                    if not created:
+                        contactAlreadyIntemplateContacts = True
+                        contactAlreadyIntemplateContacts_list.append(recipient)
+                except IntegrityError:
+                    return Response({'message': 'Integrity error occurred'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        if contactAlreadyIntemplateContacts and phoneNotInContacts:
+            return Response({'message': f'Phone number(s) {contactAlreadyIntemplateContacts_list} already associated with template and {phoneNotInContacts_list} not in your contacts'}, status=status.HTTP_400_BAD_REQUEST)
+        if phoneNotInContacts:
+            return Response({'message': f'Phone number(s) {phoneNotInContacts_list} not in your contacts, try saving them first.'}, status=status.HTTP_400_BAD_REQUEST)
+        if contactAlreadyIntemplateContacts:
+            return Response({'message': f'Phone number(s) {contactAlreadyIntemplateContacts_list} already associated with template'}, status=status.HTTP_400_BAD_REQUEST)
         
         return Response({'message': 'Contact(s) added to template'}, status=status.HTTP_201_CREATED)
+
     
     
-    @swagger_auto_schema(operation_id='Remove contacts from a template', operation_description='Remove contacts from a template by ID',
+    @swagger_auto_schema(operation_id='Remove contacts from a template', operation_description='Remove contacts from a template by template name',
                          manual_parameters=[parameter], responses={204: 'No Content',  401: 'Unauthorized'}, request_body=data, tags=['templates'])
-    def delete(self, request, templateId=None):
+    def delete(self, request, templateName=None):
         user = request.user
         try:
-            if templateId is None:
-                return Response({'message': 'Template ID not provided'}, status=status.HTTP_400_BAD_REQUEST)
-            template = Template.objects.get(pk=templateId, created_by=user)
+            if templateName is None:
+                return Response({'message': 'Template name not provided'}, status=status.HTTP_400_BAD_REQUEST)
+            formattedTemplateName = templateName.strip()
+            template = Template.objects.get(name=formattedTemplateName, created_by=user)
         except Template.DoesNotExist:
             return Response({'message': 'Template not found'}, status=status.HTTP_404_NOT_FOUND)
         
@@ -390,7 +408,7 @@ class MessageLogView(APIView):
     
     sever_response = openapi.Response('response description', MessageLogSerializer)
     @swagger_auto_schema(operation_id='Get all message logs', operation_description='Get all message logs. Optionally, add query parameter(s) with keys:\
-        content=message_content | date=yyyy-mm-dd | ordering. Default PAGE SIZE is 10 and PAGE NUMBER is 1',
+        content=message_content | date=yyyy-mm-dd | ordering.',
                          responses={200: sever_response,  401: 'Unauthorized'}, tags=['message-logs'])
     def get(self, request):
         user = request.user
@@ -405,7 +423,6 @@ class MessageLogView(APIView):
         if content:
             messages = messages.filter(content=content.strip())
             
-            
         # Filter by date if provided in query parameters
         date = request.query_params.get('date', None)
         if date:
@@ -414,14 +431,6 @@ class MessageLogView(APIView):
         # Ordering by sent_date if provided in query parameters
         if ordering:
             messages = messages.order_by(ordering)
-            
-        page_number = request.query_params.get('page', 1)
-        paginator = Paginator(messages, PAGE_SIZE)
-        
-        try:
-            message_log_page = paginator.page(page_number)
-        except EmptyPage:
-            return Response({'message': 'Requested page does not exist'}, status=status.HTTP_404_NOT_FOUND)
         
         serializer = MessageLogSerializer(messages, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -451,7 +460,7 @@ class ResendLogMessgae(APIView):
     
     # resend an unedited log message, mssage goes to all associated contacts
     server_response = openapi.Response('response description', MessageLogSerializer)
-    @swagger_auto_schema(operation_id='Resend a message log', operation_description='Resend a message log by ID. Message goes to all associated contacts',
+    @swagger_auto_schema(operation_id='Resend a message log', operation_description='Resend a message log by ID. Message goes to all recent recipients',
                          manual_parameters=[openapi.Parameter('messageId', openapi.IN_PATH, description='Message ID', type=openapi.TYPE_INTEGER)],
                          responses={204: 'Message sent!', 401:'Unauthorized' }, tags=['message-logs'])
     def post(self, request, messageId=None):
@@ -471,7 +480,7 @@ class ResendLogMessgae(APIView):
                 return Response({'message': 'No contacts associated with message'}, status=status.HTTP_400_BAD_REQUEST)
             response = send_sms(message=message.content, to=recipient_numbers)
             messageId = create_message_logs(message=message.content, user=user)
-            create_recipient_log(recipient_lists=recipient_numbers, messageLogInstace=messageId, response=response, user=user)
+            create_recipient_log(recipient_lists=recipient_numbers, messageLogInstance=messageId, response=response, user=user)
             
             return Response({'message': 'Message sent!'}, status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
@@ -480,7 +489,7 @@ class ResendLogMessgae(APIView):
 
 
     # edit and resend a message log
-    @swagger_auto_schema(operation_id='Edit and resend a message log', operation_description='Edit and resend a message log by ID. Message goes to all associated contacts',
+    @swagger_auto_schema(operation_id='Edit and resend a message log', operation_description='Edit and resend a message log by ID. Message goes to all recent recipients',
                          manual_parameters=[openapi.Parameter('messageId', openapi.IN_PATH, description='Message ID', type=openapi.TYPE_INTEGER)],
                          responses={204: 'Message updated and sent!', 401: 'Unauthorized'}, request_body=MessageLogUpdateSerializer(), tags=['message-logs'])
     def put(self, request, messageId=None):
@@ -492,26 +501,23 @@ class ResendLogMessgae(APIView):
         except MessageLog.DoesNotExist:
             return Response({'message': 'Message not found'}, status=status.HTTP_404_NOT_FOUND)
         
-        serializer = MessageLogSerializer(original_message, data=request.data, partial=True)
-        if serializer.is_valid():
-            # Create a new message log if the user edits the message
-            new_message_log = serializer.save(author_id=user)
+        if request.data.get('content') is None or request.data.get('content') == '':
+            return Response({'message': 'Message content not provided'}, status=status.HTTP_400_BAD_REQUEST)
+        message_content = request.data.get('content')
+        # Send the edited message log to its associated users
+        associated_contacts = RecipientLog.objects.filter(message_id=original_message)
+        try:
+            recipient_numbers = [contact.contact_id.phone for contact in associated_contacts if contact.contact_id]
+            if not recipient_numbers:
+                return Response({'message': 'No contacts associated with message'}, status=status.HTTP_400_BAD_REQUEST)
+            response = send_sms(message=message_content, to=recipient_numbers)
+            messageId = create_message_logs(message=message_content, user=user)
+            create_recipient_log(recipient_lists=recipient_numbers, messageLogInstance=messageId, response=response, user=user)
+        
+        except Exception as e:
+            return Response({'message': f'Error sending message: {e}'}, status=status.HTTP_400_BAD_REQUEST)
             
-            # Send the edited message log to its associated users
-            associated_contacts = RecipientLog.objects.filter(message_id=new_message_log)
-            try:
-                recipient_numbers = [contact.contact_id.phone for contact in associated_contacts if contact.contact_id]
-                if not recipient_numbers:
-                    return Response({'message': 'No contacts associated with message'}, status=status.HTTP_400_BAD_REQUEST)
-                response = send_sms(message=new_message_log.content, to=recipient_numbers)
-                messageId = create_message_logs(message=new_message_log.content, user=user)
-                create_recipient_log(recipient_lists=recipient_numbers, messageLogInstace=messageId, response=response, user=user)
-            
-            except Exception as e:
-                return Response({'message': f'Error sending message: {e}'}, status=status.HTTP_400_BAD_REQUEST)
-            
-            return Response({'message': 'Message updated and sent!'}, status=status.HTTP_204_NO_CONTENT)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'message': 'Message updated and sent!'}, status=status.HTTP_204_NO_CONTENT)
     
     
 
@@ -535,7 +541,8 @@ class SendMessageView(APIView):
     },
     required=['message', 'contacts']
     )
-    @swagger_auto_schema(operation_id='Send a message', operation_description='Send a message to one or more contacts. Required field(s): message, contacts',
+    @swagger_auto_schema(operation_id='Send a message', operation_description="Send a message to one or more contacts. Required field(s): message, contacts.\
+        Note: Phone number(s) must be in your contacts and the format should be [\"+233xxxxxxxxxx\", \"+233xxxxxxxxxx\"]",
                          responses={204: 'No Content', 401: 'Unauthorized'}, request_body=data, tags=['send-message'])
     def post(self, request):
         user = request.user
@@ -548,15 +555,17 @@ class SendMessageView(APIView):
             return Response({'message': 'No contacts provided'}, status=status.HTTP_400_BAD_REQUEST)
         
         recipient_lists = clean_contacts(contacts)
+        recipient_lists = []
         for recipient in recipient_lists:
-            contact, created = Contact.objects.get_or_create(phone=recipient, created_by=user)
-            if created:
-                contact.save()
-        
+            try:
+                contact = Contact.objects.get(phone=recipient, created_by=user)
+                recipient_lists.append(contact.phone)
+            except Contact.DoesNotExist:
+                return Response({'message': f'Contact with phone number {recipient} not found'}, status=status.HTTP_404_NOT_FOUND)
         try:
             response = send_sms(message=message, to=recipient_lists)
             messageLog =create_message_logs(message=message, user=user)
-            create_recipient_log(recipient_lists=recipient_lists, messageLogInstace=messageLog, response=response, user=user)
+            create_recipient_log(recipient_lists=recipient_lists, messageLogInstance=messageLog, response=response, user=user)
             
             return Response({'message': 'Message sent!'}, status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
@@ -567,15 +576,16 @@ class SendMessageView(APIView):
 class SendTemplateMessage(APIView):
     permission_classes = [IsAuthenticated]
     
-    parameter = openapi.Parameter('templateId', openapi.IN_PATH, description='Template ID', type=openapi.TYPE_INTEGER)
+    parameter = openapi.Parameter('templateName', openapi.IN_PATH, description='Template ID', type=openapi.TYPE_STRING)
     @swagger_auto_schema(operation_id='Send a template message', operation_description='Send a template message to all associated contacts',
-                            manual_parameters=[parameter], responses={204: 'No Content', 401: 'Unauthorized'}, tags=['send-template'])
-    def post(self, request, templateId=None):
+                            manual_parameters=[parameter], responses={204: 'No Content', 401: 'Unauthorized'}, tags=['send-message-template'])
+    def post(self, request, templateName=None):
         user = request.user
         try:
-            if templateId is None:
-                return Response({'message': 'Template ID not provided'}, status=status.HTTP_400_BAD_REQUEST)
-            template = Template.objects.get(pk=templateId, created_by=user)
+            if templateName is None:
+                return Response({'message': 'Template name not provided'}, status=status.HTTP_400_BAD_REQUEST)
+            formattedTemplateName = templateName.strip()
+            template = Template.objects.get(name=formattedTemplateName, created_by=user)
         except Template.DoesNotExist:
             return Response({'message': 'Template not found'}, status=status.HTTP_404_NOT_FOUND)
         contact = ContactTemplate.objects.filter(template_id=template).values_list('contact_id', flat=True)
@@ -587,7 +597,7 @@ class SendTemplateMessage(APIView):
             try:
                 response = send_sms(message=template.content, to=recipient_lists)
                 messageLog = create_message_logs(message=template.content, user=user)
-                create_recipient_log(recipient_lists=recipient_lists, messageLogInstace=messageLog, response=response, user=user)
+                create_recipient_log(recipient_lists=recipient_lists, messageLogInstance=messageLog, response=response, user=user)
                 
                 template.last_sent = datetime.now()
                 template.save()
@@ -596,3 +606,4 @@ class SendTemplateMessage(APIView):
             return Response({'message': 'Message sent!'}, status=status.HTTP_204_NO_CONTENT)
         else:
             return Response({'message': 'No contacts associated with template'}, status=status.HTTP_400_BAD_REQUEST)
+        
