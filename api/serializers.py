@@ -16,7 +16,7 @@ class UserAccountSerializer(serializers.ModelSerializer):
 class ContactSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contact
-        fields = ['full_name', 'email', 'phone', 'info', 'created_at', 'updated_at']
+        fields = ['full_name', 'email', 'phone', 'info']
 
 
 class ContactCreateSerializer(serializers.ModelSerializer):
@@ -114,7 +114,7 @@ class TemplateSerializer(serializers.ModelSerializer):
         
         
 class TemplateCreateSerializer(serializers.ModelSerializer):
-    created_by = serializers.PrimaryKeyRelatedField(queryset=UserAccount.objects.all(), required=True)
+    created_by = serializers.PrimaryKeyRelatedField(queryset=UserAccount.objects.all(), required=True, write_only=True)
     class Meta:
         model = Template
         fields = ['name', 'content', 'created_at', 'updated_at', 'created_by']

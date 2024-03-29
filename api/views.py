@@ -2,9 +2,24 @@ from django.contrib.auth import get_user_model
 from src.contacts.models import Contact
 from src.message_logs.models import MessageLog, RecipientLog
 from src.msg_templates.models import Template, ContactTemplate
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.throttling import UserRateThrottle
+
+from django.db import IntegrityError
+from datetime import datetime
+from django.db import transaction
+from django.core.paginator import Paginator, EmptyPage
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+from django.views.decorators.vary import vary_on_headers
+
+from .send_sms import send_sms
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from .serializers import (
     ContactSerializer,
     MessageLogSerializer,
@@ -16,20 +31,12 @@ from .serializers import (
     ContactCreateSerializer,
     TemplateCreateSerializer,
 )
-from rest_framework.permissions import IsAuthenticated
-from .send_sms import send_sms
 from .utils import (
     clean_contacts,
     create_message_logs,
     create_recipient_log,
     generate_personalized_message
 )
-from django.db import IntegrityError
-from datetime import datetime
-from django.db import transaction
-from django.core.paginator import Paginator, EmptyPage
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
 
 
 User = get_user_model
@@ -41,8 +48,10 @@ class ContactView(APIView):
     server_response = openapi.Response('response description', ContactSerializer)
     @swagger_auto_schema(
         operation_id='Get all contacts', operation_description='Get all contacts. Optionally, add query parameter(s) with keys:\
-            phone=233xxxxxxxx | full_name=John Doe | ordering. Default PAGE SIZE is 10 and PAGE NUMBER is 1',
+            phone=233xxxxxxxx | full_name=John Doe | ordering. Default (pagination) PAGE SIZE is 10 and PAGE NUMBER is 1',
         responses={200: server_response, 401: 'Unauthorized'}, tags=['contacts'])
+    @method_decorator(cache_page(60 * 60))
+    @method_decorator(vary_on_headers('Authorization'))
     def get(self, request):
         user = request.user
         ordering = request.query_params.get('ordering')
@@ -54,11 +63,6 @@ class ContactView(APIView):
         if phone_number:
             formatted_phone_number = '+' + phone_number
             contacts = contacts.filter(phone=formatted_phone_number)
-            
-        # Filter by full_name if provided in query parameters
-        full_name = request.query_params.get('full_name', None)
-        if full_name:
-            contacts = contacts.filter(full_name=full_name)
                   
         # Ordering by field if provided in query parameters
         if ordering:
@@ -75,6 +79,7 @@ class ContactView(APIView):
         serializer = ContactSerializer(contacts_page, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
     server_response = openapi.Response('response description', ContactCreateSerializer)
     @swagger_auto_schema(
     request_body=openapi.Schema(
@@ -87,7 +92,7 @@ class ContactView(APIView):
         },
         required=['phone', 'full_name',],
     ),
-    responses={201: 'Created', 400: 'Bad Request'},
+    responses={201: 'Created', 400: 'Bad Request', 401: 'Unauthorized'},
     operation_id='Create a contact',
     operation_description='Create a contact. Required field(s): phone, full_name',
     tags=['contacts']
@@ -111,8 +116,7 @@ class ContactView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    
-    
+
 
 class ContactDetailView(APIView):
     permission_classes = [IsAuthenticated]
@@ -120,7 +124,7 @@ class ContactDetailView(APIView):
     parameters = openapi.Parameter('contactFullName', openapi.IN_PATH, description='Contact Full Name', type=openapi.TYPE_STRING)
     server_response = openapi.Response('response description', ContactSerializer)
     @swagger_auto_schema(operation_id='Get a contact', operation_description='Get a contact by their full name', manual_parameters=[parameters],
-                         responses={200: server_response, 401: 'Unauthorized'}, tags=['contacts'])
+                         responses={200: server_response, 401: 'Unauthorized', 404: 'Not found'}, tags=['contacts'])
     def get(self, request, contactFullName=None):
         user = request.user
         try:
@@ -135,7 +139,7 @@ class ContactDetailView(APIView):
     
     
     @swagger_auto_schema(operation_id='Update a contact', operation_description='Update a contact by their full name', manual_parameters=[parameters],
-                         responses={200: server_response, 401: 'Unauthorized'}, request_body=ContactUpdateSerializer(), tags=['contacts'])
+                         responses={200: server_response, 400: 'Bad request', 401: 'Unauthorized'}, request_body=ContactUpdateSerializer(), tags=['contacts'])
     def put(self, request, contactFullName=None):
         user = request.user
         try:
@@ -159,7 +163,7 @@ class ContactDetailView(APIView):
     
     
     @swagger_auto_schema(operation_id='Delete a contact', operation_description='Delete a contact by full name', manual_parameters=[parameters],
-                         responses={204: 'No Content', 401: 'Unauthorized'}, tags=['contacts'])
+                         responses={204: 'No Content', 400: 'Bad request', 401: 'Unauthorized', 404: 'Not found'}, tags=['contacts'])
     def delete(self, request, contactFullName=None):
         user = request.user
         try:
@@ -176,21 +180,19 @@ class ContactDetailView(APIView):
 
 class TemplateView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
     
     server_response = openapi.Response('response description', TemplateSerializer)
     @swagger_auto_schema(operation_id='Get all templates', operation_description='Get all templates. Optionally, add query parameter(s) with keys:\
         name=template_name | ordering. Default PAGE SIZE is 10 and PAGE NUMBER is 1',
-                         responses={200: server_response,  401: 'Unauthorized'}, tags=['templates'])
+                         responses={200: server_response,  401: 'Unauthorized', 404: 'Not found'}, tags=['templates'])
+    @method_decorator(cache_page(60 * 60))
+    @method_decorator(vary_on_headers('Authorization'))
     def get(self, request):
         user = request.user
         ordering = request.query_params.get('ordering')
         
         templates = Template.objects.filter(created_by=user)
-        
-        # Filter by name if provided in query parameters
-        name = request.query_params.get('name', None)
-        if name:
-            templates = templates.filter(name=name)
             
         # Ordering by field if provided in query parameters
         if ordering:
@@ -230,14 +232,13 @@ class TemplateView(APIView):
     
     
     
-
 class TemplateDetailView(APIView):
     permission_classes = [IsAuthenticated]
     
     parameter = openapi.Parameter('templateName', openapi.IN_PATH, description='Template name', type=openapi.TYPE_STRING)
     server_response = openapi.Response('response description', TemplateSerializer)
     @swagger_auto_schema(operation_id='Get a template', operation_description="Get a template by it's name", manual_parameters=[parameter],
-                         responses={200: server_response,  401: 'Unauthorized'}, tags=['templates'])
+                         responses={200: server_response, 400: 'Bad request',  401: 'Unauthorized'}, tags=['templates'])
     def get(self, request, templateName=None):
         user = request.user
         try:
@@ -245,15 +246,15 @@ class TemplateDetailView(APIView):
                 return Response({'message': 'Template name not provided'}, status=status.HTTP_400_BAD_REQUEST)
             formattedTemplateName = templateName.strip()
             template = Template.objects.get(name=formattedTemplateName, created_by=user)
-            print('yesyyyyyyyyy')
             serializer = TemplateSerializer(template)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Template.DoesNotExist:
             return Response({'message': 'Template not found'}, status=status.HTTP_404_NOT_FOUND)
         return Response(serializer.errors, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
+    
     @swagger_auto_schema(operation_id='Update a template', operation_description="Update a template by its name", manual_parameters=[parameter],
-                         responses={200: server_response,  401: 'Unauthorized'}, request_body=TemplateUpdateSerializer(), tags=['templates'])
+                         responses={200: server_response, 400: 'Bad request',  401: 'Unauthorized', 404: 'Not found'}, request_body=TemplateUpdateSerializer(), tags=['templates'])
     def put(self, request, templateName=None):
         user = request.user
         try:
@@ -273,7 +274,7 @@ class TemplateDetailView(APIView):
     
     
     @swagger_auto_schema(operation_id='Delete a template', operation_description="Delete a template by its name", manual_parameters=[parameter],
-                         responses={204: 'No Content',  401: 'Unauthorized'}, tags=['templates'])
+                         responses={204: 'No Content',  401: 'Unauthorized', 404: 'Not found'}, tags=['templates'])
     def delete(self, request, templateName=None):
         try:
             if templateName is None:
@@ -296,7 +297,7 @@ class TemplateContactView(APIView):
     parameter = openapi.Parameter('templateName', openapi.IN_PATH, description='Template name', type=openapi.TYPE_STRING)
     server_response = openapi.Response('response description', ContactSerializer)
     @swagger_auto_schema(operation_id='Get contacts associated with a template', operation_description='Get contacts associated with a template by template name',
-                         manual_parameters=[parameter], responses={200: server_response,  401: 'Unauthorized'}, tags=['templates'])
+                         manual_parameters=[parameter], responses={200: server_response, 400: 'Bad request',  401: 'Unauthorized', 404: 'Not found'}, tags=['templates'])
     def get(self, request, templateName=None):
         user = request.user
         try:
@@ -327,8 +328,8 @@ class TemplateContactView(APIView):
             description='List of contact(s)'
         )
     },required=['contacts'])
-    @swagger_auto_schema(operation_id='Add contacts to a template', operation_description='Add contacts to a template by template name. Note: Contact will be created if it does not exist in your contacts.',
-        manual_parameters=[parameter], responses={201: 'Created',  401: 'Unauthorized'}, request_body=data, tags=['templates'])
+    @swagger_auto_schema(operation_id='Add contacts to a template', operation_description='Add contact(s) to a template by template name. Note: contacts should be a list of phone numbers in the format [\"+233xxxxxxxxxx\", \"+233xxxxxxxxxx\"]',
+        manual_parameters=[parameter], responses={201: 'Created', 400: 'Bad request',  401: 'Unauthorized', 404: 'Not found'}, request_body=data, tags=['templates'])
     def post(self, request, templateName=None):
         user = request.user
         try:
@@ -345,13 +346,11 @@ class TemplateContactView(APIView):
             return Response({'message': 'No contacts provided'}, status=status.HTTP_400_BAD_REQUEST)
         
         recipient_lists = clean_contacts(contacts)
-        phoneNotInContacts = False
-        phoneNotInContacts_list = []
-        contactAlreadyIntemplateContacts = False
-        contactAlreadyIntemplateContacts_list = []
+        phoneNotInContacts, contactAlreadyIntemplateContacts = False, False
+        phoneNotInContacts_list, contactAlreadyIntemplateContacts_list = [], []
         
         for recipient in recipient_lists:
-            contact = None  # Initialize contact variable
+            contact = None
             try:
                 contact = Contact.objects.get(phone=recipient, created_by=user)
             except Contact.DoesNotExist:
@@ -379,7 +378,7 @@ class TemplateContactView(APIView):
     
     
     @swagger_auto_schema(operation_id='Remove contacts from a template', operation_description='Remove contacts from a template by template name',
-                         manual_parameters=[parameter], responses={204: 'No Content',  401: 'Unauthorized'}, request_body=data, tags=['templates'])
+                         manual_parameters=[parameter], responses={204: 'No Content', 400: 'Bad request',  401: 'Unauthorized', 404: 'Not found'}, request_body=data, tags=['templates'])
     def delete(self, request, templateName=None):
         user = request.user
         try:
@@ -403,7 +402,6 @@ class TemplateContactView(APIView):
                     return Response({'message': f'Contact {recipient} not found in the template'}, status=status.HTTP_404_NOT_FOUND)
                 
                 contact_template.delete()
-                
         return Response({'message': 'Contacts removed from template'}, status=status.HTTP_204_NO_CONTENT)
                 
 
@@ -414,7 +412,9 @@ class MessageLogView(APIView):
     sever_response = openapi.Response('response description', MessageLogSerializer)
     @swagger_auto_schema(operation_id='Get all message logs', operation_description='Get all message logs. Optionally, add query parameter(s) with keys:\
         content=message_content | date=yyyy-mm-dd | ordering.',
-                         responses={200: sever_response,  401: 'Unauthorized'}, tags=['message-logs'])
+                         responses={200: sever_response,  401: 'Unauthorized', 404: 'Not found'}, tags=['message-logs'])
+    @method_decorator(cache_page(60 * 60))
+    @method_decorator(vary_on_headers('Authorization'))
     def get(self, request):
         user = request.user
         ordering = request.query_params.get('ordering')
@@ -436,9 +436,18 @@ class MessageLogView(APIView):
         # Ordering by sent_date if provided in query parameters
         if ordering:
             messages = messages.order_by(ordering)
+            
+        page_number = request.query_params.get('page', 1)
+        paginator = Paginator(messages, PAGE_SIZE)
         
-        serializer = MessageLogSerializer(messages, many=True)
+        try:
+            contacts_page = paginator.page(page_number)
+        except EmptyPage:
+            return Response({'message': 'Requested page does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = MessageLogSerializer(contacts_page, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 
 class MessageLogDetailVIew(APIView):
@@ -446,13 +455,14 @@ class MessageLogDetailVIew(APIView):
     
     server_response = openapi.Response('response description', MessageLogDetailSerializer)
     @swagger_auto_schema(operation_id='Get a message log', operation_description='Get a message log by ID', manual_parameters=[openapi.Parameter('messageId', openapi.IN_PATH, description='Message ID', type=openapi.TYPE_INTEGER)],
-                            responses={200: server_response,  401: 'Unauthorized'}, tags=['message-logs'])
+                            responses={200: server_response, 400: 'Bad request',  401: 'Unauthorized', 404: 'Not found'}, tags=['message-logs'])
     def get(self, request, messageId=None):
         user = request.user
         try:
             if messageId is None:
                 return Response({'message': 'Message ID not provided'}, status=status.HTTP_400_BAD_REQUEST)
             message = MessageLog.objects.get(pk=messageId, author_id=user)
+            
             serializer = MessageLogDetailSerializer(message)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except MessageLog.DoesNotExist:
@@ -462,12 +472,13 @@ class MessageLogDetailVIew(APIView):
 
 class ResendLogMessgae(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
     
     # resend an unedited log message, mssage goes to all associated contacts
     server_response = openapi.Response('response description', MessageLogSerializer)
     @swagger_auto_schema(operation_id='Resend a message log', operation_description='Resend a message log by ID. Message goes to all recent recipients',
                          manual_parameters=[openapi.Parameter('messageId', openapi.IN_PATH, description='Message ID', type=openapi.TYPE_INTEGER)],
-                         responses={204: 'Message sent!', 401:'Unauthorized' }, tags=['message-logs'])
+                         responses={204: 'Message sent!', 400: 'Bad request', 401:'Unauthorized', 404: 'Not found'}, tags=['message-logs'])
     def post(self, request, messageId=None):
         user = request.user
         try:
@@ -496,7 +507,8 @@ class ResendLogMessgae(APIView):
     # edit and resend a message log
     @swagger_auto_schema(operation_id='Edit and resend a message log', operation_description='Edit and resend a message log by ID. Message goes to all recent recipients',
                          manual_parameters=[openapi.Parameter('messageId', openapi.IN_PATH, description='Message ID', type=openapi.TYPE_INTEGER)],
-                         responses={204: 'Message updated and sent!', 401: 'Unauthorized'}, request_body=MessageLogUpdateSerializer(), tags=['message-logs'])
+                         responses={204: 'Message updated and sent!', 400: 'Bad request', 401: 'Unauthorized', 404: 'Not found'},
+                         request_body=MessageLogUpdateSerializer(), tags=['message-logs'])
     def put(self, request, messageId=None):
         user = request.user
         try:
@@ -529,6 +541,7 @@ class ResendLogMessgae(APIView):
 # view for sending a message to a single or multiple contacts
 class SendMessageView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
     
     data = openapi.Schema(
     title='Message data',
@@ -543,12 +556,11 @@ class SendMessageView(APIView):
             items=openapi.Schema(type=openapi.TYPE_STRING),
             description='List of contact(s)'
         )
-    },
-    required=['message', 'contacts']
-    )
-    @swagger_auto_schema(operation_id='Send a message', operation_description="Send a message to one or more contacts. Required field(s): message, contacts.\
-        Note: Phone number(s) must be in your contacts and the format should be [\"+233xxxxxxxxxx\", \"+233xxxxxxxxxx\"]",
-                         responses={204: 'No Content', 401: 'Unauthorized'}, request_body=data, tags=['send-message'])
+    },required=['message', 'contacts'])
+    @swagger_auto_schema(operation_id='Send a message', operation_description="Send a message to one or more contacts.\
+        Required field(s): message, contacts.\ Note: Phone number(s) must be in your contacts and the format should be \
+            \"+233xxxxxxxxxx\", \"+233xxxxxxxxxx\"]", responses={204: 'No Content', 400: 'Bad request', 401: 'Unauthorized',
+                                                                 404: 'Not found'}, request_body=data, tags=['send-message'])
     def post(self, request):
         user = request.user
         request_data = request.data.copy()
@@ -582,10 +594,11 @@ class SendMessageView(APIView):
 
 class SendTemplateMessage(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
     
     parameter = openapi.Parameter('templateName', openapi.IN_PATH, description='Template ID', type=openapi.TYPE_STRING)
     @swagger_auto_schema(operation_id='Send a template message', operation_description='Send a template message to all associated contacts',
-                            manual_parameters=[parameter], responses={204: 'No Content', 401: 'Unauthorized'}, tags=['send-message-template'])
+                            manual_parameters=[parameter], responses={204: 'No Content', 400: 'Bad request', 401: 'Unauthorized', 404: 'Not found'}, tags=['send-message-template'])
     def post(self, request, templateName=None):
         user = request.user
         try:
@@ -602,12 +615,8 @@ class SendTemplateMessage(APIView):
             try:
                 template_content = template.content
                 personalized_message = generate_personalized_message(template_message=template_content, contact=contact)
-                print(personalized_message)
-                print(contact.phone)
                 response = send_sms(message=personalized_message, to=[contact.phone])
-                print(response)
                 messageLog = create_message_logs(message=personalized_message, user=user)
-                print('yeayyyyyyyyyaaaas')
                 create_recipient_log(messageLogInstance=messageLog, response=response, user=user)
                                 
                 template.last_sent = datetime.now()
@@ -616,5 +625,3 @@ class SendTemplateMessage(APIView):
                 return Response({'message': f'Error: {e}'}, status=status.HTTP_400_BAD_REQUEST)
         
         return Response({'message': 'Message sent!'}, status=status.HTTP_204_NO_CONTENT)
-
-        
