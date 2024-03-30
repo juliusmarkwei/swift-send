@@ -70,7 +70,7 @@ class ContactView(APIView):
     )]
     @extend_schema(operation_id='get all contacts', summary='list all contacts', parameters=parameters,
                    tags=['contacts'], responses=ContactSerializer)
-    @method_decorator(cache_page(60 * 60))
+    @method_decorator(cache_page(20)) # 20 seconds
     @method_decorator(vary_on_headers('Authorization'))
     def get(self, request):
         user = request.user
@@ -234,7 +234,7 @@ class TemplateView(APIView):
         tags=['templates'],
         responses={200: TemplateSerializer}
     )
-    @method_decorator(cache_page(60 * 60))
+    @method_decorator(cache_page(20)) # 20 seconds
     @method_decorator(vary_on_headers('Authorization'))
     def get(self, request):
         user = request.user
@@ -485,7 +485,7 @@ class MessageLogView(APIView):
     )]
     @extend_schema(operation_id='get all message logs', summary='list all message logs', parameters=parameter,
                    tags=['message_logs'], responses=MessageLogSerializer)
-    @method_decorator(cache_page(60 * 60))
+    @method_decorator(cache_page(20)) # 20 seconds
     @method_decorator(vary_on_headers('Authorization'))
     def get(self, request):
         user = request.user
