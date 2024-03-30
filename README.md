@@ -1,1 +1,1 @@
-# SMS Sender Application
+# SwiftSend API - SMS Platform for Digital Marketers

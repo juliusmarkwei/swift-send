@@ -42,6 +42,7 @@ class ContactUpdateSerializer(serializers.ModelSerializer):
         fields = ['full_name', 'email', 'phone', 'info']
 
 
+# MEssage log serializer and its related serializers
 class ContactDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contact
@@ -106,7 +107,8 @@ class ResentLogMessageSerializer(serializers.ModelSerializer):
         model = MessageLog
         fields = ['content', 'sent_at']
             
-            
+
+# Template serializer and its related serializers  
 class TemplateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Template
@@ -127,3 +129,17 @@ class TemplateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Template
         fields = ['name', 'content']
+        
+
+# Serializers for Swagger ui documentation purposes
+class ResendEditedMessageLogSerializer(serializers.Serializer):
+    content = serializers.CharField(required=True)
+    
+    
+class SendMessageSerializer(serializers.Serializer):
+    message = serializers.CharField(required=True)
+    contacts = serializers.ListField(required=True)
+    
+
+class ContactBodySerializer(serializers.Serializer):
+    contacts = serializers.ListField(required=True)

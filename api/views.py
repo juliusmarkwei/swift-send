@@ -17,6 +17,9 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.views.decorators.vary import vary_on_headers
 
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
+from drf_spectacular.types import OpenApiTypes
+
 from .send_sms import send_sms
 from .serializers import (
     ContactSerializer,
@@ -28,6 +31,9 @@ from .serializers import (
     MessageLogUpdateSerializer,
     ContactCreateSerializer,
     TemplateCreateSerializer,
+    ResendEditedMessageLogSerializer,
+    SendMessageSerializer,
+    ContactBodySerializer
 )
 from .utils import (
     clean_contacts,
@@ -43,6 +49,27 @@ PAGE_SIZE = 10
 class ContactView(APIView):
     permission_classes = [IsAuthenticated]
     
+    parameters = [OpenApiParameter(
+            name='phone',
+            description='Phone number',
+            location=OpenApiParameter.QUERY,
+            required=False,
+            type=OpenApiTypes.STR
+    ), OpenApiParameter(
+            name='ordering',
+            description='Order response by field',
+            location=OpenApiParameter.QUERY,
+            required=False,
+            type=OpenApiTypes.STR
+    ), OpenApiParameter(
+            name='page',
+            description='Page number',
+            location=OpenApiParameter.QUERY,
+            required=False,
+            type=OpenApiTypes.STR
+    )]
+    @extend_schema(operation_id='get all contacts', summary='list all contacts', parameters=parameters,
+                   tags=['contacts'], responses=ContactSerializer)
     @method_decorator(cache_page(60 * 60))
     @method_decorator(vary_on_headers('Authorization'))
     def get(self, request):
@@ -73,6 +100,13 @@ class ContactView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+    @extend_schema(
+    request=(ContactSerializer),
+    responses={201: ContactSerializer},
+    summary='Create a contact',
+    description='Create a contact. Required field(s): phone, full_name',
+    tags=['contacts']
+    )
     def post(self, request):
         user = request.user
         request_data = request.data.copy()
@@ -97,6 +131,24 @@ class ContactView(APIView):
 class ContactDetailView(APIView):
     permission_classes = [IsAuthenticated]
     
+    parameters = [
+    OpenApiParameter(
+        name='contactFullName',
+        location=OpenApiParameter.PATH,
+        description='Contact Full Name',
+        type=OpenApiTypes.STR
+    )]
+    response = OpenApiResponse(
+        description='Response description',
+        response=ContactSerializer  # Assuming ContactSerializer is your serializer class
+    )
+    @extend_schema(
+        summary='Get a contact',
+        description='Get a contact by specifying their full name',
+        parameters=parameters,
+        responses={200: response},
+        tags=['contacts']
+    )
     def get(self, request, contactFullName=None):
         user = request.user
         try:
@@ -109,7 +161,14 @@ class ContactDetailView(APIView):
         except Contact.DoesNotExist:
             return Response({'message': 'Contact not found'}, status=status.HTTP_404_NOT_FOUND)
     
- 
+    
+    @extend_schema(
+        summary='Update a contact',
+        description='Update a contact by specifying their full name',
+        parameters=parameters,
+        responses={200: ContactUpdateSerializer},
+        request=ContactUpdateSerializer,
+        tags=['contacts'])
     def put(self, request, contactFullName=None):
         user = request.user
         try:
@@ -132,6 +191,11 @@ class ContactDetailView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     
+    @extend_schema(
+        summary='Delete a contact',
+        description='Delete a contact by specifying their full name',
+        parameters=parameters,
+        tags=['contacts'])
     def delete(self, request, contactFullName=None):
         user = request.user
         try:
@@ -150,6 +214,26 @@ class TemplateView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [UserRateThrottle]
     
+    paramters = [OpenApiParameter(
+        name='ordering',
+        description='Order response by field',
+        location=OpenApiParameter.QUERY,
+        required=False,
+        type=OpenApiTypes.STR
+    ), OpenApiParameter(
+        name='page',
+        description='Page number',
+        location=OpenApiParameter.QUERY,
+        required=False,
+        type=OpenApiTypes.STR
+    )]
+    @extend_schema(
+        summary='List all templates',
+        description='List all templates created by current user',
+        parameters=paramters,
+        tags=['templates'],
+        responses={200: TemplateSerializer}
+    )
     @method_decorator(cache_page(60 * 60))
     @method_decorator(vary_on_headers('Authorization'))
     def get(self, request):
@@ -173,6 +257,12 @@ class TemplateView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     
+    @extend_schema(
+    summary='Create a template',
+    description='Create a template. Required field(s): name, content',
+    request=TemplateSerializer,
+    tags=['templates']
+    )
     def post(self, request):
         try:
             user = request.user
@@ -197,6 +287,14 @@ class TemplateView(APIView):
 class TemplateDetailView(APIView):
     permission_classes = [IsAuthenticated]
     
+    parameters = [OpenApiParameter(
+        name='templateName',
+        location=OpenApiParameter.PATH,
+        description='Template Name',
+        type=OpenApiTypes.STR
+    )]
+    @extend_schema(summary='Get a template', description='Get a template by specifying its name',
+                   parameters=parameters, responses={200: TemplateSerializer}, tags=['templates'])
     def get(self, request, templateName=None):
         user = request.user
         try:
@@ -211,6 +309,8 @@ class TemplateDetailView(APIView):
         return Response(serializer.errors, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     
+    @extend_schema(summary='Update a template', description='Update a template by specifying its name',
+                   parameters=parameters, responses={200: TemplateUpdateSerializer}, request=TemplateUpdateSerializer, tags=['templates'])
     def put(self, request, templateName=None):
         user = request.user
         try:
@@ -229,6 +329,8 @@ class TemplateDetailView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 
+    @extend_schema(summary='Delete a template', description='Delete a template by specifying its name',
+                   parameters=parameters, tags=['templates'])
     def delete(self, request, templateName=None):
         try:
             if templateName is None:
@@ -248,6 +350,14 @@ class TemplateDetailView(APIView):
 class TemplateContactView(APIView):
     permission_classes = [IsAuthenticated]
     
+    parameters = [OpenApiParameter(
+        name='templateName',
+        location=OpenApiParameter.PATH,
+        description='Template Name',
+        type=OpenApiTypes.STR
+    )]
+    @extend_schema(summary='Get contacts associated with a template', description='Get contacts associated with a template by specifying template name',
+                   parameters=parameters, responses={200: ContactSerializer}, tags=['templates'])
     def get(self, request, templateName=None):
         user = request.user
         try:
@@ -268,6 +378,8 @@ class TemplateContactView(APIView):
             return Response({'message': 'No contacts found for this template'}, status=status.HTTP_404_NOT_FOUND)
         
     
+    @extend_schema(summary='Associate contacts with a template', description='Add a list od contacts to associate with a template. Specify the template name.',
+                   request=ContactBodySerializer(), tags=['templates'])
     def post(self, request, templateName=None):
         user = request.user
         try:
@@ -314,6 +426,8 @@ class TemplateContactView(APIView):
         return Response({'message': 'Contact(s) added to template'}, status=status.HTTP_201_CREATED)
 
     
+    @extend_schema(summary='Remove a contact associated with a template', description='Remove contacts associate with a template. Specify the template name.',
+                   request=ContactBodySerializer(), tags=['templates'])
     def delete(self, request, templateName=None):
         user = request.user
         try:
@@ -344,6 +458,33 @@ class TemplateContactView(APIView):
 class MessageLogView(APIView):
     permission_classes = [IsAuthenticated]
     
+    parameter = [OpenApiParameter(
+        name='ordering',
+        description='Order response by field',
+        location=OpenApiParameter.QUERY,
+        required=False,
+        type=OpenApiTypes.STR
+    ), OpenApiParameter(
+        name='content',
+        description='Message content',
+        location=OpenApiParameter.QUERY,
+        required=False,
+        type=OpenApiTypes.STR
+    ), OpenApiParameter(
+        name='date',
+        description='Message date',
+        location=OpenApiParameter.QUERY,
+        required=False,
+        type=OpenApiTypes.DATE
+    ), OpenApiParameter(
+        name='page',
+        description='Page number',
+        location=OpenApiParameter.QUERY,
+        required=False,
+        type=OpenApiTypes.STR
+    )]
+    @extend_schema(operation_id='get all message logs', summary='list all message logs', parameters=parameter,
+                   tags=['message_logs'], responses=MessageLogSerializer)
     @method_decorator(cache_page(60 * 60))
     @method_decorator(vary_on_headers('Authorization'))
     def get(self, request):
@@ -384,6 +525,14 @@ class MessageLogView(APIView):
 class MessageLogDetailVIew(APIView):
     permission_classes = [IsAuthenticated]
     
+    parameters = [OpenApiParameter(
+        name='messageId',
+        location=OpenApiParameter.PATH,
+        description='Message ID',
+        type=OpenApiTypes.INT
+    )]
+    @extend_schema(summary='Get a message log', description='Get a message log by specifying its ID',
+                   parameters=parameters, responses={200: MessageLogDetailSerializer}, tags=['message_logs'])
     def get(self, request, messageId=None):
         user = request.user
         try:
@@ -403,6 +552,14 @@ class ResendLogMessgae(APIView):
     throttle_classes = [UserRateThrottle]
     
     # resend an unedited log message, mssage goes to all associated contacts
+    parameters = [OpenApiParameter(
+        name='messageId',
+        location=OpenApiParameter.PATH,
+        description='Message ID',
+        type=OpenApiTypes.INT
+    )]
+    @extend_schema(summary='Resend a message log', description='Resend a message log by specifying its Id',
+                   parameters=parameters, tags=['message_logs'])
     def post(self, request, messageId=None):
         user = request.user
         try:
@@ -427,8 +584,8 @@ class ResendLogMessgae(APIView):
             return Response({'message': f'Error: {e}'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-
-    # edit and resend a message log
+    @extend_schema(summary='Edit and resend message log', description='Edit and resend a message log by specifying its Id',
+                   request=ResendEditedMessageLogSerializer(), tags=['message_logs'])
     def put(self, request, messageId=None):
         user = request.user
         try:
@@ -457,12 +614,14 @@ class ResendLogMessgae(APIView):
         return Response({'message': 'Message updated and sent!'}, status=status.HTTP_204_NO_CONTENT)
     
     
-
+    
 # view for sending a message to a single or multiple contacts
 class SendMessageView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [UserRateThrottle]
     
+    @extend_schema(summary='Send a quick message', description='Send a quick message to one or more contacts. Contact(s) must be a list',
+                   request=SendMessageSerializer(), tags=['send-message'])
     def post(self, request):
         user = request.user
         request_data = request.data.copy()
@@ -498,6 +657,14 @@ class SendTemplateMessage(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [UserRateThrottle]
     
+    parameters = [OpenApiParameter(
+        name='templateName',
+        location=OpenApiParameter.PATH,
+        description='Template Name',
+        type=OpenApiTypes.STR  
+    )]
+    @extend_schema(summary='Send a message using a template', description='Send a message using a template by specifying its name',
+                     parameters=parameters, tags=['send-message-template'])
     def post(self, request, templateName=None):
         user = request.user
         try:
