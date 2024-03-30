@@ -14,6 +14,7 @@ from pathlib import Path
 from decouple import config
 from datetime import timedelta 
 import os
+from typing import Dict, Any
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -54,7 +55,8 @@ INSTALLED_APPS = [
     'src.msg_templates',
     'api',
     
-    "drf_yasg", # swagger
+    # "drf_yasg", # swagger
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
@@ -158,7 +160,8 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '5/day',
         'user': '10/minute',
-    }
+    },
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 SIMPLE_JWT = {
@@ -184,29 +187,22 @@ DOMAIN = 'localhost:5173'
 SITE_NAME = config('SITE_NAME')
 
 
-SWAGGER_SETTINGS = {
-    'USE_SESSION_AUTH': False,
-    'DEFAULT_FIELD_INSPECTORS': [
-        'drf_yasg.inspectors.CamelCaseJSONFilter',
-        'drf_yasg.inspectors.InlineSerializerInspector',
-        'drf_yasg.inspectors.RelatedFieldInspector',
-        'drf_yasg.inspectors.ChoiceFieldInspector',
-        'drf_yasg.inspectors.FileFieldInspector',
-        'drf_yasg.inspectors.DictFieldInspector',
-        'drf_yasg.inspectors.SimpleFieldInspector',
-        'drf_yasg.inspectors.StringDefaultFieldInspector',
-    ],
-    'SECURITY_DEFINITIONS': {
-        'JWT': {
-            'type': 'apiKey',
-            'name': 'Authorization',
-            'in': 'header',
-            'description': 'JWT Token without the Bearer prefix'
-        }
-    }
+SPECTACULAR_SETTINGS = {
+    'TITLE': "SwiftSend API Documentation - SMS Platform for Digital Marketers ®️",
+    'DESCRIPTION': "This SMS Platform for Digital Marketers is a sophisticated web application tailored to meet the specific requirements of digital marketers and businesses. This platform offers a comprehensive suite of features designed to streamline the process of sending SMS messages to multiple recipients. Leveraging the capabilities of the Africa\'s Talking SMS API, users can efficiently create, manage, and send personalized messages while benefiting from advanced functionalities such as message templating, quick send options, and detailed message history tracking. With its intuitive interface and seamless integration with Africa\'s Talking API, the SMS Platform or Digital Marketers provides users with a powerful tool to enhance their communication strategies and engage with their target audience effectively.",
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
 }
 
-
+SPECTACULAR_DEFAULTS: Dict[str, Any] = {
+    'SERVE_AUTHENTICATION': None,
+    # Optional: MAY contain "name", "url", "email"
+    'CONTACT': {'email': 'julius.markwei@stu.ucc.edu.gh'},
+    # Optional: MUST contain "name", MAY contain URL
+    'LICENSE': {},
+    # Tags defined in the global scope
+    'TAGS': ["contacts", 'templates', 'send-message', 'send-template-message', 'message-logs', 'user-accounts', 'auth'],
+}
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
