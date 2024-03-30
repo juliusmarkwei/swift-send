@@ -104,7 +104,7 @@ class ContactView(APIView):
     request=(ContactSerializer),
     responses={201: ContactSerializer},
     summary='Create a contact',
-    description='Create a contact. Required field(s): phone, full_name',
+    description='Create a contact. Required field(s): phone, full_name. Format for phone should start with country code: +233xxxxxxxxxx',
     tags=['contacts']
     )
     def post(self, request):
@@ -378,7 +378,7 @@ class TemplateContactView(APIView):
             return Response({'message': 'No contacts found for this template'}, status=status.HTTP_404_NOT_FOUND)
         
     
-    @extend_schema(summary='Associate contacts with a template', description='Add a list od contacts to associate with a template. Specify the template name.',
+    @extend_schema(summary='Associate contacts with a template', description='Add a list of contacts to associate with a template, format: [\"+233xxxxxxxxx\", ...]. Specify the template name.',
                    request=ContactBodySerializer(), tags=['templates'])
     def post(self, request, templateName=None):
         user = request.user
@@ -426,7 +426,7 @@ class TemplateContactView(APIView):
         return Response({'message': 'Contact(s) added to template'}, status=status.HTTP_201_CREATED)
 
     
-    @extend_schema(summary='Remove a contact associated with a template', description='Remove contacts associate with a template. Specify the template name.',
+    @extend_schema(summary='Remove a contact associated with a template', description='Remove contacts associate with a template, format: [\"+233xxxxxxxxx\", ...]. Specify the template name.',
                    request=ContactBodySerializer(), tags=['templates'])
     def delete(self, request, templateName=None):
         user = request.user
