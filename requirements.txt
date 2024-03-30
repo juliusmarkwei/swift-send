@@ -1,5 +1,6 @@
 africastalking==1.2.7
 asgiref==3.7.2
+attrs==23.2.0
 certifi==2024.2.2
 cffi==1.16.0
 charset-normalizer==3.3.2
@@ -13,12 +14,15 @@ django-templated-mail==1.1.1
 djangorestframework==3.15.0
 djangorestframework-simplejwt==5.3.1
 djoser==2.2.2
+drf-spectacular==0.27.1
 drf-yasg==1.21.7
 exceptiongroup==1.2.0
 gunicorn==21.2.0
 idna==3.6
 inflection==0.5.1
 iniconfig==2.0.0
+jsonschema==4.21.1
+jsonschema-specifications==2023.12.1
 oauthlib==3.2.2
 packaging==24.0
 pluggy==1.4.0
@@ -31,8 +35,10 @@ python-decouple==3.8
 python3-openid==3.2.0
 pytz==2024.1
 PyYAML==6.0.1
+referencing==0.34.0
 requests==2.31.0
 requests-oauthlib==1.4.0
+rpds-py==0.18.0
 schema==0.7.5
 social-auth-app-django==5.4.0
 social-auth-core==4.5.3
