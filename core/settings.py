@@ -156,6 +156,7 @@ AUTH_USER_MODEL = 'accounts.UserAccount'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
     ),
     'DEFAULT_THROTTLE_RATES': {
         'anon': '5/day',

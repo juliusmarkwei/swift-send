@@ -199,14 +199,16 @@ class ContactDetailView(APIView):
     def delete(self, request, contactFullName=None):
         user = request.user
         try:
-            if contactFullName is None:
+            if not contactFullName:
                 return Response({'message': 'Contact full name not provided'}, status=status.HTTP_400_BAD_REQUEST)
-            formattedFulName = contactFullName.strip()
-            contact = Contact.objects.get(full_name=formattedFulName, created_by=user)
+            formattedFullName = contactFullName.strip()
+            contact = Contact.objects.get(full_name=formattedFullName, created_by=user)
             contact.delete()
             return Response({'message': 'Contact deleted!'}, status=status.HTTP_204_NO_CONTENT)
         except Contact.DoesNotExist:
             return Response({'message': 'Contact not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
@@ -458,7 +460,7 @@ class TemplateContactView(APIView):
 class MessageLogView(APIView):
     permission_classes = [IsAuthenticated]
     
-    parameter = [OpenApiParameter(
+    parameters = [OpenApiParameter(
         name='ordering',
         description='Order response by field',
         location=OpenApiParameter.QUERY,
@@ -483,7 +485,7 @@ class MessageLogView(APIView):
         required=False,
         type=OpenApiTypes.STR
     )]
-    @extend_schema(operation_id='get all message logs', summary='list all message logs', parameters=parameter,
+    @extend_schema(operation_id='get all message logs', summary='list all message logs', parameters=parameters,
                    tags=['message_logs'], responses=MessageLogSerializer)
     @method_decorator(cache_page(20)) # 20 seconds
     @method_decorator(vary_on_headers('Authorization'))
@@ -615,7 +617,7 @@ class ResendLogMessgae(APIView):
     
     
     
-# view for sending a message to a single or multiple contacts
+# view for sending a message to a one or multiple contacts
 class SendMessageView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [UserRateThrottle]
@@ -639,7 +641,7 @@ class SendMessageView(APIView):
                 contact = Contact.objects.get(phone=recipient, created_by=user)
                 phone_numbers.append(contact.phone)
             except Contact.DoesNotExist:
-                return Response({'message': f'Contact with phone number {recipient} not found'}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'message': f'Contact with phone number {recipient} not found in your contacts'}, status=status.HTTP_404_NOT_FOUND)
         try:
             if not phone_numbers:
                 return Response({'message': 'No contacts found'}, status=status.HTTP_404_NOT_FOUND)
