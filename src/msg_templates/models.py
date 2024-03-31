@@ -26,6 +26,7 @@ class Template(models.Model):
         
         
 class ContactTemplate(models.Model):
+    id = models.UUIDField(default=uuid.uuid4, unique=True, primary_key=True, editable=False)
     contact_id = models.ForeignKey(Contact, on_delete=models.CASCADE, db_column='contact_id')
     template_id = models.ForeignKey(Template, on_delete=models.CASCADE, db_column='template_id')
     created_at = models.DateTimeField(auto_now_add=True)
