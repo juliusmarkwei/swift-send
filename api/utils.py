@@ -45,9 +45,9 @@ def create_recipient_log(messageLogInstance, response: dict, user):
                 recipient_log = RecipientLog.objects.create(message_id=messageLogInstance, contact_id=recipient_contact, status=recipient_status)
                 recipient_log.save()
             else:
-                print(f"No Contact found for recipient number: {recipient_number}")
+                return Response(status=status.HTTP_400_BAD_REQUEST)
         else:
-            return Response({"message": "Recipient number is deleted from your contact!"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
 def generate_personalized_message(template_message: str, contact: Contact):

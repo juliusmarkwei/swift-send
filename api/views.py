@@ -207,7 +207,6 @@ class ContactDetailView(APIView):
             formattedFullName = contactFullName.strip()
             contact = Contact.objects.get(full_name=formattedFullName, created_by=user)
             contact.delete()
-            print('contact is deleted')
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Contact.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
