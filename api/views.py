@@ -702,6 +702,6 @@ class SendTemplateMessage(APIView):
                 template.last_sent = datetime.now()
                 template.save()
             except Exception as e:
-                return Response({'message': f'Error: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(status=status.HTTP_400_BAD_REQUEST)
         
-        return Response({'message': 'Message sent!'}, status=status.HTTP_204_NO_CONTENT)
+        return Response(tatus=status.HTTP_204_NO_CONTENT)

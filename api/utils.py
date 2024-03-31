@@ -39,7 +39,6 @@ def create_recipient_log(messageLogInstance, response: dict, user):
         if recipient_number:
             recipient_status = recipient_data.get("status")
             
-           # Query the Contact object only if recipient_number is not None
             recipient_contact = Contact.objects.filter(phone=recipient_number, created_by=user).first()
             if recipient_contact:
                 recipient_log = RecipientLog.objects.create(message_id=messageLogInstance, contact_id=recipient_contact, status=recipient_status)
