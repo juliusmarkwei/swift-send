@@ -1,4 +1,4 @@
-# SwiftSend API - SMS Platform for Digital Marketers
+# <header style="display: flex; justify-content: center; align-items: center;">SwiftSend API - SMS Platform for Digital Marketers</header>
 
 <a href="https://api-swift-send.koyeb.app/" style="display: flex; justify-content: center;">
     <img src="./assets/swiftsend figma.png" alt="swiftsend logo" style="width: 50%;"/>
