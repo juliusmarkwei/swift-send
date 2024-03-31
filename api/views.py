@@ -434,23 +434,23 @@ class TemplateContactView(APIView):
     @extend_schema(
         summary='Remove contacts from a template',
         description='Remove a list of contacts from a template.',
-        request=ContactBodySerializer(),
-        parameters=parameters,  # assuming parameters is defined elsewhere
+        request=ContactSerializer(),
+        parameters=parameters,
         tags=['templates']
     )
     def delete(self, request, templateName=None):
         user = request.user
         try:
             if templateName is None:
-                return Response({'message': 'Template name not provided'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(status=status.HTTP_400_BAD_REQUEST)
             formattedTemplateName = templateName.strip()
             template = Template.objects.get(name=formattedTemplateName, created_by=user)
         except Template.DoesNotExist:
-            return Response({'message': 'Template not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response(status=status.HTTP_404_NOT_FOUND)
         
-        contacts = request.data.get('contacts')
-        if not contacts:
-            return Response({'message': 'No contacts provided'}, status=status.HTTP_400_BAD_REQUEST)
+        contacts = request.data.get('contacts', [])
+        if len(contacts) == 0:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
         
         recipient_lists = clean_contacts(contacts)
         with transaction.atomic():
@@ -458,10 +458,10 @@ class TemplateContactView(APIView):
                 try:
                     contact_template = ContactTemplate.objects.get(template_id=template, contact_id__phone=recipient)
                 except ContactTemplate.DoesNotExist:
-                    return Response({'message': f'Contact {recipient} not found in the template'}, status=status.HTTP_404_NOT_FOUND)
+                    return Response(status=status.HTTP_404_NOT_FOUND)
                 
                 contact_template.delete()
-        return Response({'message': 'Contacts removed from template'}, status=status.HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_204_NO_CONTENT)
                 
 
   
@@ -684,6 +684,8 @@ class SendTemplateMessage(APIView):
             return Response({'message': 'Template not found'}, status=status.HTTP_404_NOT_FOUND)
         
         contacts = ContactTemplate.objects.filter(template_id=template)
+        if len(contacts) == 0:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
         for contact_template in contacts:
             contact = contact_template.contact_id
             try:
