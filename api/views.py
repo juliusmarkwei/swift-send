@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.throttling import UserRateThrottle
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from django.db import IntegrityError
 from datetime import datetime
@@ -48,6 +49,7 @@ PAGE_SIZE = 10
 
 class ContactView(APIView):
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
     
     parameters = [OpenApiParameter(
             name='phone',
@@ -130,6 +132,7 @@ class ContactView(APIView):
 
 class ContactDetailView(APIView):
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
     
     parameters = [
     OpenApiParameter(
@@ -204,17 +207,19 @@ class ContactDetailView(APIView):
             formattedFullName = contactFullName.strip()
             contact = Contact.objects.get(full_name=formattedFullName, created_by=user)
             contact.delete()
-            return Response({'message': 'Contact deleted!'}, status=status.HTTP_204_NO_CONTENT)
+            print('contact is deleted')
+            return Response(status=status.HTTP_204_NO_CONTENT)
         except Contact.DoesNotExist:
-            return Response({'message': 'Contact not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response(status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
 class TemplateView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [UserRateThrottle]
+    parser_classes = [MultiPartParser, FormParser]
     
     paramters = [OpenApiParameter(
         name='ordering',
@@ -261,7 +266,8 @@ class TemplateView(APIView):
     
     @extend_schema(
     summary='Create a template',
-    description='Create a template. Required field(s): name, content',
+    description="Create a template. Required field(s): name, content. Add fields to personalize message e.g. <full_name>.\
+        Example: Dear <full_name>, enjoy your holidays ahead.",
     request=TemplateSerializer,
     tags=['templates']
     )
@@ -288,6 +294,7 @@ class TemplateView(APIView):
     
 class TemplateDetailView(APIView):
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
     
     parameters = [OpenApiParameter(
         name='templateName',
@@ -351,6 +358,7 @@ class TemplateDetailView(APIView):
 
 class TemplateContactView(APIView):
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
     
     parameters = [OpenApiParameter(
         name='templateName',
@@ -459,6 +467,7 @@ class TemplateContactView(APIView):
   
 class MessageLogView(APIView):
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
     
     parameters = [OpenApiParameter(
         name='ordering',
@@ -526,6 +535,7 @@ class MessageLogView(APIView):
 
 class MessageLogDetailVIew(APIView):
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
     
     parameters = [OpenApiParameter(
         name='messageId',
@@ -552,6 +562,7 @@ class MessageLogDetailVIew(APIView):
 class ResendLogMessgae(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [UserRateThrottle]
+    parser_classes = [MultiPartParser, FormParser]
     
     # resend an unedited log message, mssage goes to all associated contacts
     parameters = [OpenApiParameter(
@@ -621,6 +632,7 @@ class ResendLogMessgae(APIView):
 class SendMessageView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [UserRateThrottle]
+    parser_classes = [MultiPartParser, FormParser]
     
     @extend_schema(summary='Send a quick message', description='Send a quick message to one or more contacts. Contact(s) must be a list',
                    request=SendMessageSerializer(), tags=['send-message'])
@@ -658,6 +670,7 @@ class SendMessageView(APIView):
 class SendTemplateMessage(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [UserRateThrottle]
+    parser_classes = [MultiPartParser, FormParser]
     
     parameters = [OpenApiParameter(
         name='templateName',
