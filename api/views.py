@@ -621,9 +621,9 @@ class ResendLogMessgae(APIView):
             create_recipient_log(messageLogInstance=messageId, response=response, user=user)
         
         except Exception as e:
-            return Response({'message': f'Error sending message: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(status=status.HTTP_400_BAD_REQUEST)
             
-        return Response({'message': 'Message updated and sent!'}, status=status.HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_204_NO_CONTENT)
     
     
     
