@@ -33,7 +33,8 @@ from .serializers import (
     TemplateCreateSerializer,
     ResendEditedMessageLogSerializer,
     SendMessageSerializer,
-    ContactBodySerializer
+    ContactBodySerializer,
+    TemplateBodySerializer
 )
 from .utils import (
     clean_contacts,
@@ -261,13 +262,8 @@ class TemplateView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     
-    @extend_schema(
-    summary='Create a template',
-    description="Create a template. Required field(s): name, content. Add fields to personalize message e.g. <full_name>.\
-        Example: Dear <full_name>, enjoy your holidays ahead.",
-    request=TemplateSerializer,
-    tags=['templates']
-    )
+    @extend_schema(summary="Create a template", description='Create a template. Add contact\'s fields like <full_name> to personalze message',
+                   tags=['templates'], request=TemplateBodySerializer())
     def post(self, request):
         try:
             user = request.user
@@ -330,11 +326,11 @@ class TemplateDetailView(APIView):
         except Template.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
         
-        serializer = TemplateSerializer(template, data=request.data, partial=True)
+        serializer = TemplateUpdateSerializer(template, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(status=status.HTTP_400_BAD_REQUEST)
     
 
     @extend_schema(summary='Delete a template', description='Delete a template by specifying its name',
@@ -366,7 +362,7 @@ class TemplateContactView(APIView):
         type=OpenApiTypes.STR
     )]
     @extend_schema(summary='Get contacts associated with a template', description='Get contacts associated with a template by specifying template name',
-                   parameters=parameters, responses={200: ContactSerializer}, tags=['templates'])
+                   parameters=parameters, tags=['templates'])
     def get(self, request, templateName=None):
         user = request.user
         try:
@@ -435,8 +431,13 @@ class TemplateContactView(APIView):
         return Response({'message': 'Contact(s) added to template'}, status=status.HTTP_201_CREATED)
 
     
-    @extend_schema(summary='Remove a contact associated with a template', description='Remove contacts associate with a template, format: [\"+233xxxxxxxxx\", ...]. Specify the template name.',
-                   request=ContactBodySerializer(), tags=['templates'])
+    @extend_schema(
+        summary='Remove contacts from a template',
+        description='Remove a list of contacts from a template.',
+        request=ContactBodySerializer(),
+        parameters=parameters,  # assuming parameters is defined elsewhere
+        tags=['templates']
+    )
     def delete(self, request, templateName=None):
         user = request.user
         try:
@@ -697,4 +698,4 @@ class SendTemplateMessage(APIView):
             except Exception as e:
                 return Response(status=status.HTTP_400_BAD_REQUEST)
         
-        return Response(tatus=status.HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_204_NO_CONTENT)

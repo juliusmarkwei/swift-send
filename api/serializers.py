@@ -129,7 +129,7 @@ class TemplateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Template
         fields = ['name', 'content']
-        
+    
 
 # Serializers for Swagger ui documentation purposes
 class ResendEditedMessageLogSerializer(serializers.Serializer):
@@ -143,3 +143,8 @@ class SendMessageSerializer(serializers.Serializer):
 
 class ContactBodySerializer(serializers.Serializer):
     contacts = serializers.ListField(required=True)
+    
+
+class TemplateBodySerializer(serializers.Serializer):
+    name = serializers.CharField(required=True)
+    content = serializers.CharField(required=True)
