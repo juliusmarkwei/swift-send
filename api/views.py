@@ -29,7 +29,6 @@ from .serializers import (
     MessageLogDetailSerializer,
     ContactUpdateSerializer,
     TemplateUpdateSerializer,
-    MessageLogUpdateSerializer,
     ContactCreateSerializer,
     TemplateCreateSerializer,
     ResendEditedMessageLogSerializer,
@@ -120,7 +119,6 @@ class ContactView(APIView):
         if existing_contact:
             return Response({'message': 'Contact already exist'}, status=status.HTTP_409_CONFLICT)
         
-        # print(request_data)
         serializer = ContactCreateSerializer(data=request_data)
         
         if serializer.is_valid():
@@ -156,13 +154,13 @@ class ContactDetailView(APIView):
         user = request.user
         try:
             if contactFullName is None:
-                return Response({'message': 'Contact full name not provided'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'message': "Contact's full name not provided"}, status=status.HTTP_400_BAD_REQUEST)
             formattedFulName = contactFullName.strip()
             contact = Contact.objects.get(full_name=formattedFulName, created_by=user)
             serializer = ContactSerializer(contact)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Contact.DoesNotExist:
-            return Response({'message': 'Contact not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response(status=status.HTTP_404_NOT_FOUND)
     
     
     @extend_schema(
@@ -181,7 +179,7 @@ class ContactDetailView(APIView):
             formattedFulName = contactFullName.strip()
             contact = user_contacts.get(full_name=formattedFulName)
         except Contact.DoesNotExist:
-            return Response({'message': 'Contact not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
         serializer = ContactSerializer(contact, data=request.data, partial=True)
         if serializer.is_valid():
@@ -189,7 +187,7 @@ class ContactDetailView(APIView):
                 serializer.save()
                 return Response(serializer.data, status=status.HTTP_200_OK)
             except IntegrityError:
-                return Response({'message': 'Contact with this number already exist!'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
@@ -276,6 +274,8 @@ class TemplateView(APIView):
             request_data = request.data.copy()
             request_data['created_by'] = user.id
             
+            if not request_data.get('name') or not request_data.get('content'):
+                return Response(status=status.HTTP_400_BAD_REQUEST)
             template_name_exists = Template.objects.filter(name=request_data['name'], created_by=user).exists()
             if template_name_exists:
                 return Response({'message': 'Template name already exist, choose a different name'}, status=status.HTTP_409_CONFLICT)
@@ -313,7 +313,7 @@ class TemplateDetailView(APIView):
             serializer = TemplateSerializer(template)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Template.DoesNotExist:
-            return Response({'message': 'Template not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response(status=status.HTTP_404_NOT_FOUND)
         return Response(serializer.errors, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     
@@ -328,7 +328,7 @@ class TemplateDetailView(APIView):
             formattedTemplateName = templateName.strip()
             template = user_templates.get(name=formattedTemplateName)
         except Template.DoesNotExist:
-            return Response({'message': 'Template not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response(status=status.HTTP_404_NOT_FOUND)
         
         serializer = TemplateSerializer(template, data=request.data, partial=True)
         if serializer.is_valid():
@@ -349,9 +349,9 @@ class TemplateDetailView(APIView):
             template.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Template.DoesNotExist:
-            return Response({'message': 'Template not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response(status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     
 
@@ -375,7 +375,7 @@ class TemplateContactView(APIView):
             formattedTemplateName = templateName.strip()
             template = Template.objects.get(name=formattedTemplateName, created_by=user)
         except Template.DoesNotExist:
-            return Response({'message': 'Template not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response(status=status.HTTP_404_NOT_FOUND)
         
         contact_template_objects = ContactTemplate.objects.filter(template_id=template)
         contacts = Contact.objects.filter(pk__in=contact_template_objects.values_list('contact_id', flat=True))
@@ -384,7 +384,7 @@ class TemplateContactView(APIView):
             serializer = ContactSerializer(contacts, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
-            return Response({'message': 'No contacts found for this template'}, status=status.HTTP_404_NOT_FOUND)
+            return Response(status=status.HTTP_404_NOT_FOUND)
         
     
     @extend_schema(summary='Associate contacts with a template', description='Add a list of contacts to associate with a template, format: [\"+233xxxxxxxxx\", ...]. Specify the template name.',
@@ -481,12 +481,6 @@ class MessageLogView(APIView):
         required=False,
         type=OpenApiTypes.STR
     ), OpenApiParameter(
-        name='date',
-        description='Message date',
-        location=OpenApiParameter.QUERY,
-        required=False,
-        type=OpenApiTypes.DATE
-    ), OpenApiParameter(
         name='page',
         description='Page number',
         location=OpenApiParameter.QUERY,
@@ -509,12 +503,7 @@ class MessageLogView(APIView):
         content = request.query_params.get('content', None)
         if content:
             messages = messages.filter(content=content.strip())
-            
-        # Filter by date if provided in query parameters
-        date = request.query_params.get('date', None)
-        if date:
-            messages = messages.filter(sent_at__date=date)
-        
+                   
         # Ordering by sent_date if provided in query parameters
         if ordering:
             messages = messages.order_by(ordering)
@@ -548,17 +537,17 @@ class MessageLogDetailVIew(APIView):
         user = request.user
         try:
             if messageId is None:
-                return Response({'message': 'Message ID not provided'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(status=status.HTTP_400_BAD_REQUEST)
             message = MessageLog.objects.get(pk=messageId, author_id=user)
             
             serializer = MessageLogDetailSerializer(message)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except MessageLog.DoesNotExist:
-            return Response({'message': 'Message not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
 
 
-class ResendLogMessgae(APIView):
+class ResendLogMessage(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [UserRateThrottle]
     parser_classes = [MultiPartParser, FormParser]
@@ -596,9 +585,14 @@ class ResendLogMessgae(APIView):
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
+
+class EditResendLogMessage(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+    
     @extend_schema(summary='Edit and resend message log', description='Edit and resend a message log by specifying its Id',
                    request=ResendEditedMessageLogSerializer(), tags=['message_logs'])
-    def put(self, request, messageId=None):
+    def post(self, request, messageId=None):
         user = request.user
         try:
             if messageId is None:
@@ -608,14 +602,14 @@ class ResendLogMessgae(APIView):
             return Response({'message': 'Message not found'}, status=status.HTTP_404_NOT_FOUND)
         
         if request.data.get('content') is None or request.data.get('content') == '':
-            return Response({'message': 'Message content not provided'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(status=status.HTTP_400_BAD_REQUEST)
         message_content = request.data.get('content')
         # Send the edited message log to its associated users
         associated_contacts = RecipientLog.objects.filter(message_id=original_message)
         try:
             recipient_numbers = [contact.contact_id.phone for contact in associated_contacts if contact.contact_id]
             if not recipient_numbers:
-                return Response({'message': 'No contacts associated with message'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(status=status.HTTP_400_BAD_REQUEST)
             response = send_sms(message=message_content, to=recipient_numbers)
             messageId = create_message_logs(message=message_content, user=user)
             create_recipient_log(messageLogInstance=messageId, response=response, user=user)
@@ -624,7 +618,6 @@ class ResendLogMessgae(APIView):
             return Response(status=status.HTTP_400_BAD_REQUEST)
             
         return Response(status=status.HTTP_204_NO_CONTENT)
-    
     
     
 # view for sending a message to a one or multiple contacts
