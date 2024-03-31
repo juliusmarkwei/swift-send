@@ -34,7 +34,7 @@ def create_message_logs(message: str, user):
 
 def create_recipient_log(messageLogInstance, response: dict, user):
     for recipient_data in response.get("SMSMessageData", {}).get("Recipients", []):
-        print("reesponse here: ", response)
+        print("response here: ", response)
         recipient_number = recipient_data.get("number")
         if recipient_number:
             recipient_status = recipient_data.get("status")

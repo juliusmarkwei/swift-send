@@ -1,5 +1,7 @@
 import africastalking
 from decouple import config
+from rest_framework.response import Response
+from rest_framework import status
 
 africastalking.initialize(
     username=config('AFRICASTALKING_USERNAME'),
@@ -12,5 +14,5 @@ def send_sms(message: str, to: list, sender: str=None):
     try:
         return sms.send(message, to, sender)
     except Exception as e:
-        print (f'Hey, we have a problem: {e}')
+        return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': str(e)})
 

@@ -591,9 +591,9 @@ class ResendLogMessgae(APIView):
             messageId = create_message_logs(message=message.content, user=user)
             create_recipient_log(messageLogInstance=messageId, response=response, user=user)
             
-            return Response({'message': 'Message sent!'}, status=status.HTTP_204_NO_CONTENT)
+            return Response(status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
-            return Response({'message': f'Error: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
     @extend_schema(summary='Edit and resend message log', description='Edit and resend a message log by specifying its Id',
@@ -657,12 +657,12 @@ class SendMessageView(APIView):
             if not phone_numbers:
                 return Response({'message': 'No contacts found'}, status=status.HTTP_404_NOT_FOUND)
             response = send_sms(message=message, to=phone_numbers)
-            messageLog =create_message_logs(message=message, user=user)
+            messageLog = create_message_logs(message=message, user=user)
             create_recipient_log(messageLogInstance=messageLog, response=response, user=user)
             
-            return Response({'message': 'Message sent!'}, status=status.HTTP_204_NO_CONTENT)
+            return Response(status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
-            return Response({'message': f'Error: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
 
