@@ -106,6 +106,10 @@ Throughout this project, I demonstrated my proficiency in various aspects of bac
 
 <img src="./assets/play.svg" width=15px heigth=15px> Enjoy SwiftSend
 
+## Some challenges I face during this project's journey
+
+-   template....
+
 ## Get Involved
 
 We welcome contributions and participation from the community to help make this e-commerce backend API even better! Whether you're looking to fix bugs, add new features, or improve documentation, your help is greatly appreciated. Here's how you can get involved:
